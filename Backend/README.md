@@ -41,10 +41,10 @@ Required values:
 - `APP_JWT_SECRET`
 - `CORS_ORIGINS`
 
-Use your deployed frontend URL in `CORS_ORIGINS`, for example:
+Use exact frontend origins in `CORS_ORIGINS`, separated by commas. Do not include trailing slashes:
 
 ```text
-https://your-frontend-domain.com,http://localhost:5173
+https://iare-events-hub.vercel.app,http://localhost:5173,http://127.0.0.1:5173
 ```
 
 The service starts with:

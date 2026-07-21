@@ -1,8 +1,26 @@
 from functools import lru_cache
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlsplit
 
 from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+DEFAULT_CORS_ORIGINS = (
+    "https://iare-events-hub.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+)
+
+
+def normalize_origin(raw_origin: str) -> str | None:
+    origin = raw_origin.strip()
+    if not origin:
+        return None
+
+    parts = urlsplit(origin)
+    if parts.scheme and parts.netloc:
+        return f"{parts.scheme}://{parts.netloc}"
+    return origin.rstrip("/")
 
 
 class Settings(BaseSettings):
@@ -24,7 +42,11 @@ class Settings(BaseSettings):
     samvidha_request_timeout_seconds: int = 15
     allow_dev_auth_headers: bool = False
     jwt_audience: str | None = "authenticated"
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origins: str = (
+        "https://iare-events-hub.vercel.app,"
+        "http://localhost:5173,"
+        "http://127.0.0.1:5173"
+    )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -45,7 +67,14 @@ class Settings(BaseSettings):
     @computed_field
     @property
     def cors_origin_list(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        origins: list[str] = []
+        for raw_origin in (*DEFAULT_CORS_ORIGINS, *self.cors_origins.split(",")):
+            origin = normalize_origin(raw_origin)
+            if not origin:
+                continue
+            if origin not in origins:
+                origins.append(origin)
+        return origins
 
 
 @lru_cache
