@@ -25,6 +25,31 @@ uvicorn app.main:app --reload
 
 The API will be available at `http://127.0.0.1:8000`.
 
+## Deploy On Render
+
+This repository includes a root-level `render.yaml` Blueprint for the backend service. In Render, create a new Blueprint from the GitHub repository and fill the prompted secret environment variables.
+
+Required values:
+
+- `DATABASE_URL`
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_JWT_SECRET`
+- `CORS_ORIGINS`
+
+Use your deployed frontend URL in `CORS_ORIGINS`, for example:
+
+```text
+https://your-frontend-domain.com,http://localhost:5173
+```
+
+The service starts with:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
 ## Auth Contract
 
 Identity verification is assumed to happen before this backend. `get_current_user()` accepts:
