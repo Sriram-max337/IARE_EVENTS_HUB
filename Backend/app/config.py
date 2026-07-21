@@ -1,0 +1,46 @@
+from functools import lru_cache
+from urllib.parse import quote_plus
+
+from pydantic import computed_field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    database_url: str | None = None
+    supabase_url: str | None = None
+    supabase_anon_key: str | None = None
+    supabase_service_role_key: str | None = None
+    supabase_db_host: str | None = None
+    supabase_db_port: int = 5432
+    supabase_db_name: str = "postgres"
+    supabase_db_user: str = "postgres"
+    supabase_db_password: str | None = None
+    supabase_jwt_secret: str | None = None
+    jwt_audience: str | None = "authenticated"
+    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    @computed_field
+    @property
+    def async_database_url(self) -> str | None:
+        if self.database_url:
+            return self.database_url
+        if not self.supabase_db_host or not self.supabase_db_password:
+            return None
+        user = quote_plus(self.supabase_db_user)
+        password = quote_plus(self.supabase_db_password)
+        return (
+            f"postgresql+asyncpg://{user}:{password}@"
+            f"{self.supabase_db_host}:{self.supabase_db_port}/{self.supabase_db_name}"
+        )
+
+    @computed_field
+    @property
+    def cors_origin_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

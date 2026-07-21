@@ -1,0 +1,136 @@
+import { useEffect, useMemo, useState } from 'react'
+import { motion } from 'framer-motion'
+import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
+import * as api from '../../lib/api'
+import EventCard from '../../components/EventCard'
+import Tabs from '../../components/Tabs'
+
+export default function EventsFeed() {
+  const { currentUser } = useAuth()
+  const { showToast } = useToast()
+  const [depts, setDepts] = useState([])
+  const [events, setEvents] = useState([])
+  const [regCounts, setRegCounts] = useState({})
+  const [myStatuses, setMyStatuses] = useState({})
+  const [tab, setTab] = useState('all')
+  const [loading, setLoading] = useState(true)
+
+  async function loadAll() {
+    setLoading(true)
+    const [deptList, eventList] = await Promise.all([api.getDepts(), api.getEvents({ status: 'upcoming' })])
+    setDepts(deptList)
+    setEvents(eventList)
+
+    const counts = {}
+    const statuses = {}
+    await Promise.all(
+      eventList.map(async (ev) => {
+        const regs = await api.getRegistrationsForEvent(ev.id)
+        counts[ev.id] = regs.filter((r) => r.status === 'registered').length
+        statuses[ev.id] = await api.getUserEventStatus(currentUser.id, ev.id)
+      })
+    )
+    setRegCounts(counts)
+    setMyStatuses(statuses)
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    loadAll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const deptById = useMemo(() => Object.fromEntries(depts.map((d) => [d.id, d])), [depts])
+
+  const filtered = useMemo(() => {
+    if (tab === 'mydept') return events.filter((e) => e.dept_id === currentUser.dept_id)
+    if (tab === 'registered')
+      return events.filter((e) => ['registered', 'waitlisted'].includes(myStatuses[e.id]))
+    return events
+  }, [tab, events, myStatuses, currentUser.dept_id])
+
+  const handleRegister = async (event) => {
+    const result = await api.registerForEvent(event.id, currentUser.id)
+    if (result.status === 'rejected') {
+      showToast('This event is full and not accepting a waitlist.', 'error')
+      return
+    }
+    setMyStatuses((prev) => ({ ...prev, [event.id]: result.status }))
+    setRegCounts((prev) => ({
+      ...prev,
+      [event.id]: result.status === 'registered' ? (prev[event.id] || 0) + 1 : prev[event.id] || 0,
+    }))
+    showToast(
+      result.status === 'waitlisted'
+        ? `You're on the waitlist for ${event.title}.`
+        : `Registered for ${event.title}.`,
+      'success'
+    )
+  }
+
+  const handleCancel = async (event) => {
+    await api.cancelRegistration(event.id, currentUser.id)
+    setMyStatuses((prev) => ({ ...prev, [event.id]: 'none' }))
+    const regs = await api.getRegistrationsForEvent(event.id)
+    setRegCounts((prev) => ({ ...prev, [event.id]: regs.filter((r) => r.status === 'registered').length }))
+    showToast(`Cancelled your spot for ${event.title}.`, 'info')
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight2 text-ink-light dark:text-ink">Events</h1>
+        <p className="text-sm text-ink-light-dim dark:text-ink-dim mt-1">
+          Browse what's happening across departments and register for a seat.
+        </p>
+      </div>
+
+      <Tabs
+        tabs={[
+          { value: 'all', label: 'All events', count: events.length },
+          {
+            value: 'mydept',
+            label: 'My dept',
+            count: events.filter((e) => e.dept_id === currentUser.dept_id).length,
+          },
+          {
+            value: 'registered',
+            label: 'Registered',
+            count: events.filter((e) => ['registered', 'waitlisted'].includes(myStatuses[e.id])).length,
+          },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
+
+      {loading ? (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-40 rounded-card border border-border-light dark:border-border animate-pulse bg-surface-light dark:bg-surface" />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 text-ink-light-dim dark:text-ink-dim text-sm">
+          Nothing here yet — check back soon.
+        </div>
+      ) : (
+        <motion.div layout className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map((event) => (
+            <EventCard
+              key={event.id}
+              event={event}
+              dept={deptById[event.dept_id]}
+              registeredCount={regCounts[event.id] || 0}
+              role="student"
+              userStatus={myStatuses[event.id] || 'none'}
+              onRegister={handleRegister}
+              onCancel={handleCancel}
+              detailHref={`/events/${event.id}`}
+            />
+          ))}
+        </motion.div>
+      )}
+    </div>
+  )
+}

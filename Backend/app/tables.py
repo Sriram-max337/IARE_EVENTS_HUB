@@ -1,0 +1,73 @@
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+    func,
+)
+from sqlalchemy.dialects.postgresql import UUID
+
+
+metadata = MetaData()
+
+depts = Table(
+    "depts",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("name", Text, nullable=False, unique=True),
+    Column("code", Text, nullable=False, unique=True),
+)
+
+users = Table(
+    "users",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("roll_no", Text, nullable=False, unique=True),
+    Column("name", Text, nullable=False),
+    Column("dept_id", UUID(as_uuid=True), ForeignKey("depts.id"), nullable=False),
+    Column("year", Integer, nullable=False),
+    Column("role", String, nullable=False, server_default="student"),
+    Column("managed_dept_id", UUID(as_uuid=True), ForeignKey("depts.id")),
+    Column("created_at", DateTime(timezone=True), server_default=func.now()),
+    CheckConstraint("year between 1 and 4"),
+    CheckConstraint("role in ('student','event_manager','main_admin')"),
+)
+
+events = Table(
+    "events",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("dept_id", UUID(as_uuid=True), ForeignKey("depts.id"), nullable=False),
+    Column("created_by", UUID(as_uuid=True), ForeignKey("users.id"), nullable=False),
+    Column("title", Text, nullable=False),
+    Column("description", Text),
+    Column("venue", Text, nullable=False),
+    Column("event_date", DateTime(timezone=True), nullable=False),
+    Column("capacity", Integer, nullable=False),
+    Column("waitlist_enabled", Boolean, nullable=False, server_default="false"),
+    Column("status", String, nullable=False, server_default="live"),
+    Column("created_at", DateTime(timezone=True), server_default=func.now()),
+    CheckConstraint("capacity > 0"),
+    CheckConstraint("status in ('live','cancelled')"),
+)
+
+registrations = Table(
+    "registrations",
+    metadata,
+    Column("id", UUID(as_uuid=True), primary_key=True),
+    Column("event_id", UUID(as_uuid=True), ForeignKey("events.id"), nullable=False),
+    Column("student_id", UUID(as_uuid=True), ForeignKey("users.id"), nullable=False),
+    Column("status", String, nullable=False, server_default="confirmed"),
+    Column("student_dept_snapshot", UUID(as_uuid=True), nullable=False),
+    Column("student_year_snapshot", Integer, nullable=False),
+    Column("registered_at", DateTime(timezone=True), server_default=func.now()),
+    UniqueConstraint("event_id", "student_id"),
+    CheckConstraint("status in ('confirmed','waitlisted','cancelled')"),
+)
