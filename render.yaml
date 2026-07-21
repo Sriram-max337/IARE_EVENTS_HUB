@@ -20,6 +20,20 @@ services:
         sync: false
       - key: SUPABASE_JWT_SECRET
         sync: false
+      - key: APP_JWT_SECRET
+        sync: false
+      - key: APP_JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: 1440
+      - key: SAMVIDHA_LOGIN_URL
+        value: https://samvidha.iare.ac.in/pages/login/checkUser.php
+      - key: SAMVIDHA_PROFILE_URL
+        value: https://samvidha.iare.ac.in/home?action=profile
+      - key: SAMVIDHA_REQUEST_TIMEOUT_SECONDS
+        value: 15
+      - key: ALLOW_DEV_AUTH_HEADERS
+        value: false
       - key: JWT_AUDIENCE
         value: authenticated
       - key: CORS_ORIGINS

@@ -38,6 +38,7 @@ Required values:
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_JWT_SECRET`
+- `APP_JWT_SECRET`
 - `CORS_ORIGINS`
 
 Use your deployed frontend URL in `CORS_ORIGINS`, for example:
@@ -50,6 +51,31 @@ The service starts with:
 
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+## Samvidha Login
+
+Students sign in through:
+
+```http
+POST /api/v1/auth/login
+```
+
+Request body:
+
+```json
+{
+  "roll_no": "20951A0501",
+  "password": "samvidha-password"
+}
+```
+
+The backend verifies credentials against Samvidha, scrapes the profile page, upserts the local `users` row, and returns an app JWT. The Samvidha password is never stored.
+
+Use the returned token on protected routes:
+
+```http
+Authorization: Bearer <access_token>
 ```
 
 ## Auth Contract

@@ -4,6 +4,8 @@ import { motion } from 'framer-motion'
 import { ArrowRight, Sun, Moon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useToast } from '../context/ToastContext'
+import { loginWithSamvidha } from '../lib/api'
 import { users } from '../lib/mockData'
 import Button from '../components/Button'
 import { Field, Input } from '../components/FormControls'
@@ -23,8 +25,11 @@ const ROLE_LABEL = {
 export default function LoginPage() {
   const { login } = useAuth()
   const { theme, toggleTheme } = useTheme()
+  const { showToast } = useToast()
   const navigate = useNavigate()
   const [rollNo, setRollNo] = useState('')
+  const [password, setPassword] = useState('')
+  const [signingIn, setSigningIn] = useState(false)
 
   const demoUsers = {
     student: users.find((u) => u.id === 'u1'),
@@ -36,6 +41,21 @@ export default function LoginPage() {
     login(userId)
     const user = users.find((u) => u.id === userId)
     navigate(HOME_BY_ROLE[user.role])
+  }
+
+  const handleSamvidhaLogin = async (e) => {
+    e.preventDefault()
+    setSigningIn(true)
+    try {
+      const result = await loginWithSamvidha({ roll_no: rollNo, password })
+      login(result.user, result.access_token)
+      showToast('Signed in with Samvidha.', 'success')
+      navigate(HOME_BY_ROLE[result.user.role])
+    } catch (error) {
+      showToast(error.message || 'Unable to sign in.', 'error')
+    } finally {
+      setSigningIn(false)
+    }
   }
 
   return (
@@ -64,13 +84,11 @@ export default function LoginPage() {
         <div className="rounded-card border border-border-light dark:border-border bg-surface-light dark:bg-surface p-6">
           <form
             className="flex flex-col gap-4"
-            onSubmit={(e) => {
-              e.preventDefault()
-              handleDemoLogin('u1')
-            }}
+            onSubmit={handleSamvidhaLogin}
           >
             <Field label="Roll number">
               <Input
+                required
                 placeholder="e.g. 20951A0501"
                 value={rollNo}
                 onChange={(e) => setRollNo(e.target.value)}
@@ -78,10 +96,16 @@ export default function LoginPage() {
               />
             </Field>
             <Field label="Password">
-              <Input type="password" placeholder="••••••••" />
+              <Input
+                required
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </Field>
-            <Button type="submit" size="lg" className="w-full mt-1">
-              Continue <ArrowRight size={15} className="ml-1" />
+            <Button type="submit" size="lg" className="w-full mt-1" disabled={signingIn}>
+              {signingIn ? 'Signing in...' : 'Continue'} <ArrowRight size={15} className="ml-1" />
             </Button>
           </form>
 

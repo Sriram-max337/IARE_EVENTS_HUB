@@ -43,6 +43,26 @@ class UserOut(BaseModel):
     managed_dept_id: UUID | None = None
 
 
+class SamvidhaProfileOut(BaseModel):
+    name: str
+    roll_no: str
+    branch: str
+    year: int
+    section: str | None = None
+
+
+class LoginIn(BaseModel):
+    roll_no: str = Field(min_length=1)
+    password: str = Field(min_length=1)
+
+
+class LoginOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserOut
+    profile: SamvidhaProfileOut
+
+
 class EventIn(BaseModel):
     title: str = Field(min_length=1)
     description: str | None = None

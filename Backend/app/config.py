@@ -16,6 +16,13 @@ class Settings(BaseSettings):
     supabase_db_user: str = "postgres"
     supabase_db_password: str | None = None
     supabase_jwt_secret: str | None = None
+    app_jwt_secret: str | None = None
+    app_jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24
+    samvidha_login_url: str = "https://samvidha.iare.ac.in/pages/login/checkUser.php"
+    samvidha_profile_url: str = "https://samvidha.iare.ac.in/home?action=profile"
+    samvidha_request_timeout_seconds: int = 15
+    allow_dev_auth_headers: bool = False
     jwt_audience: str | None = "authenticated"
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 

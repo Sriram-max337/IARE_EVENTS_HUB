@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.routers import admin, auth_me, depts, events, registrations
+from app.routers import admin, api_v1_auth, auth_me, depts, events, registrations
 
 settings = get_settings()
 
@@ -46,6 +46,7 @@ async def health():
 
 
 app.include_router(auth_me.router)
+app.include_router(api_v1_auth.router)
 app.include_router(depts.router)
 app.include_router(events.router)
 app.include_router(registrations.router)

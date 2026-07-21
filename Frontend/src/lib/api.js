@@ -1,6 +1,8 @@
 import { depts, users, events, registrations } from './mockData'
 import { supabase } from './supabaseClient'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+
 // Flip to false once real Supabase tables (events, registrations, users, depts)
 // are live — every function below already mirrors the query it will become.
 const USE_MOCK = true
@@ -12,6 +14,19 @@ const clone = (x) => JSON.parse(JSON.stringify(x))
 let _events = clone(events)
 let _registrations = clone(registrations)
 let _users = clone(users)
+
+export async function loginWithSamvidha({ roll_no, password }) {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roll_no, password }),
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    throw new Error(data.message || 'Unable to sign in')
+  }
+  return data
+}
 
 export async function getDepts() {
   if (!USE_MOCK) {
