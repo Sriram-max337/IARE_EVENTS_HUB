@@ -29,6 +29,8 @@ The API will be available at `http://127.0.0.1:8000`.
 
 This repository includes a root-level `render.yaml` Blueprint for the backend service. In Render, create a new Blueprint from the GitHub repository and fill the prompted secret environment variables.
 
+The service pins `PYTHON_VERSION=3.13.5` to avoid Python 3.14 dependency wheel issues during deploy.
+
 Required values:
 
 - `DATABASE_URL`
