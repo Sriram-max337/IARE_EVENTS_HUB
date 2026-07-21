@@ -47,11 +47,10 @@ export default function EventsFeed() {
   const deptById = useMemo(() => Object.fromEntries(depts.map((d) => [d.id, d])), [depts])
 
   const filtered = useMemo(() => {
-    if (tab === 'mydept') return events.filter((e) => e.dept_id === currentUser.dept_id)
     if (tab === 'registered')
       return events.filter((e) => ['confirmed', 'waitlisted'].includes(myStatuses[e.id]))
     return events
-  }, [tab, events, myStatuses, currentUser.dept_id])
+  }, [tab, events, myStatuses])
 
   const handleRegister = async (event) => {
     const result = await api.registerForEvent(event.id)
@@ -89,11 +88,6 @@ export default function EventsFeed() {
         tabs={[
           { value: 'all', label: 'All events', count: events.length },
           {
-            value: 'mydept',
-            label: 'My dept',
-            count: events.filter((e) => e.dept_id === currentUser.dept_id).length,
-          },
-          {
             value: 'registered',
             label: 'Registered',
             count: events.filter((e) => ['confirmed', 'waitlisted'].includes(myStatuses[e.id])).length,
@@ -119,7 +113,7 @@ export default function EventsFeed() {
             <EventCard
               key={event.id}
               event={event}
-              dept={deptById[event.dept_id]}
+              dept={deptById[event.club_id]}
               registeredCount={regCounts[event.id] || 0}
               role="student"
               userStatus={myStatuses[event.id] || 'none'}

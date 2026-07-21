@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, insert, select, update
 from sqlalchemy.exc import IntegrityError
@@ -83,7 +81,7 @@ async def register_for_event(
             "event_id": payload.event_id,
             "student_id": current_user.id,
             "status": new_status,
-            "student_dept_snapshot": current_user.dept_id,
+            "student_dept_snapshot": current_user.dept,
             "student_year_snapshot": current_user.year,
         }
 
@@ -108,7 +106,7 @@ async def register_for_event(
 
 @router.delete("/{registration_id}", response_model=RegistrationCancelOut)
 async def cancel_registration(
-    registration_id: UUID,
+    registration_id: int,
     current_user: CurrentUser = Depends(require_role(Role.student)),
     session: AsyncSession = Depends(get_session, use_cache=False),
 ):

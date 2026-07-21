@@ -106,5 +106,5 @@ If `SUPABASE_JWT_SECRET` is set, JWTs are verified with HS256. If it is not set,
 Utility routes included for frontend integration:
 
 - `GET /auth/me`
-- `GET /depts`
+- `GET /clubs`
 - `GET /health`

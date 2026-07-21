@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field, model_validator
 
 
 class Role(StrEnum):
@@ -27,20 +27,20 @@ class ErrorMessage(BaseModel):
     message: str
 
 
-class DeptOut(BaseModel):
-    id: UUID
+class ClubOut(BaseModel):
+    id: int
     name: str
     code: str
 
 
 class UserOut(BaseModel):
-    id: UUID
+    id: int
     roll_no: str
     name: str
-    dept_id: UUID
+    dept: str | None = None
     year: int
     role: Role
-    managed_dept_id: UUID | None = None
+    managed_club_id: int | None = None
 
 
 class SamvidhaProfileOut(BaseModel):
@@ -70,9 +70,9 @@ class EventIn(BaseModel):
     event_date: datetime | None = None
     capacity: int = Field(gt=0)
     waitlist_enabled: bool = False
+    club_id: int | None = None
     date: str | None = None
     time: str | None = None
-    dept_id: UUID | None = None
 
     @model_validator(mode="after")
     def fill_event_date(self) -> "EventIn":
@@ -96,9 +96,9 @@ class EventPatch(BaseModel):
     capacity: int | None = Field(default=None, gt=0)
     waitlist_enabled: bool | None = None
     status: EventStatus | None = None
+    club_id: int | None = None
     date: str | None = None
     time: str | None = None
-    dept_id: UUID | None = None
 
     @model_validator(mode="after")
     def fill_event_date(self) -> "EventPatch":
@@ -111,8 +111,8 @@ class EventPatch(BaseModel):
 
 
 class EventOut(BaseModel):
-    id: UUID
-    dept_id: UUID
+    id: int
+    club_id: int
     title: str
     description: str | None = None
     venue: str
@@ -134,37 +134,40 @@ class EventOut(BaseModel):
 
 
 class EventManagerOut(EventOut):
-    created_by: UUID
+    created_by: int
 
 
 class RegistrationIn(BaseModel):
-    event_id: UUID
+    event_id: int
 
 
 class RegistrationOut(BaseModel):
-    id: UUID
-    event_id: UUID
-    student_id: UUID
+    id: int
+    event_id: int
+    student_id: int
     status: RegistrationStatus
-    student_dept_snapshot: UUID
+    student_dept_snapshot: str | None = None
     student_year_snapshot: int
+    qr_token: UUID | None = None
+    attended: bool = False
+    checked_in_at: datetime | None = None
     registered_at: datetime | None = None
     event: EventOut | None = None
 
     @computed_field
     @property
-    def user_id(self) -> UUID:
+    def user_id(self) -> int:
         return self.student_id
 
 
 class RegistrationCancelOut(BaseModel):
     registration: RegistrationOut
     promotion_happened: bool
-    promoted_registration_id: UUID | None = None
+    promoted_registration_id: int | None = None
 
 
 class EventCapacityOut(BaseModel):
-    event_id: UUID
+    event_id: int
     confirmed_count: int
     waitlisted_count: int
     active_count: int
@@ -175,12 +178,7 @@ class StatsBucket(BaseModel):
 
 
 class DeptStatsBucket(StatsBucket):
-    dept_id: UUID
-
-    @computed_field
-    @property
-    def deptId(self) -> str:
-        return str(self.dept_id)
+    dept: str | None = None
 
 
 class YearStatsBucket(StatsBucket):
@@ -197,32 +195,22 @@ class StatsOut(BaseModel):
     def total(self) -> int:
         return self.total_confirmed
 
-    @computed_field
-    @property
-    def byDept(self) -> list[dict[str, Any]]:
-        return [{"deptId": str(item.dept_id), "count": item.count} for item in self.by_dept]
-
-    @computed_field
-    @property
-    def byYear(self) -> list[dict[str, Any]]:
-        return [{"year": str(item.year), "count": item.count} for item in self.by_year]
-
 
 class ManagerAssignIn(BaseModel):
-    user_id: UUID
-    dept_id: UUID
+    user_id: int
+    club_id: int
 
 
 class CurrentUser(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    id: UUID
+    id: int
     roll_no: str
     name: str
-    dept_id: UUID
+    dept: str | None = None
     year: int
     role: Role
-    managed_dept_id: UUID | None = None
+    managed_club_id: int | None = None
     _raw: dict[str, Any] = PrivateAttr(default_factory=dict)
 
     @classmethod

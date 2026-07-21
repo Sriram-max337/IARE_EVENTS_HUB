@@ -38,7 +38,7 @@ export default function AdminEventOverride() {
     await api.updateEvent(id, {
       title: form.title,
       description: form.description,
-      dept_id: form.dept_id,
+      club_id: Number(form.club_id),
       date: form.date,
       time: form.time,
       venue: form.venue,
@@ -95,7 +95,7 @@ export default function AdminEventOverride() {
         </Field>
 
         <Field label="Department">
-          <Select value={form.dept_id} onChange={(e) => update('dept_id', e.target.value)}>
+          <Select value={form.club_id} onChange={(e) => update('club_id', Number(e.target.value))}>
             {depts.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}

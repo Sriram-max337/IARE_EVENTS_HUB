@@ -42,7 +42,7 @@ export default function AdminEvents() {
 
   const filtered = events.filter(
     (e) =>
-      (deptFilter === 'all' || e.dept_id === deptFilter) &&
+      (deptFilter === 'all' || String(e.club_id) === String(deptFilter)) &&
       (statusFilter === 'all' || e.status === statusFilter)
   )
 
@@ -94,7 +94,7 @@ export default function AdminEvents() {
             <EventCard
               key={event.id}
               event={event}
-              dept={deptById[event.dept_id]}
+              dept={deptById[event.club_id]}
               registeredCount={regCounts[event.id] || 0}
               role="admin"
               isPastOrCancelled={event.status !== 'live'}

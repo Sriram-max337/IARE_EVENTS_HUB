@@ -15,7 +15,7 @@ export default function AdminManagers() {
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [pendingRemove, setPendingRemove] = useState(null)
-  const [newManager, setNewManager] = useState({ user_id: '', dept_id: '' })
+  const [newManager, setNewManager] = useState({ user_id: '', club_id: '' })
 
   async function load() {
     setLoading(true)
@@ -29,7 +29,7 @@ export default function AdminManagers() {
     setManagers(managerList)
     setNewManager((m) => ({
       user_id: m.user_id || userList.find((u) => u.role === 'student')?.id || '',
-      dept_id: m.dept_id || deptList[0]?.id || '',
+      club_id: m.club_id || deptList[0]?.id || '',
     }))
     setLoading(false)
   }
@@ -42,11 +42,11 @@ export default function AdminManagers() {
 
   const handleAdd = async (e) => {
     e.preventDefault()
-    if (!newManager.user_id || !newManager.dept_id) return
+    if (!newManager.user_id || !newManager.club_id) return
     const selectedUser = users.find((u) => u.id === newManager.user_id)
     await api.addManager(newManager)
     showToast(`${selectedUser?.name || 'User'} added as an event manager.`, 'success')
-    setNewManager({ user_id: '', dept_id: depts[0]?.id || '' })
+    setNewManager({ user_id: '', club_id: depts[0]?.id || '' })
     setShowAdd(false)
     load()
   }
@@ -97,8 +97,8 @@ export default function AdminManagers() {
           </Field>
           <Field label="Department">
             <Select
-              value={newManager.dept_id}
-              onChange={(e) => setNewManager((m) => ({ ...m, dept_id: e.target.value }))}
+              value={newManager.club_id}
+              onChange={(e) => setNewManager((m) => ({ ...m, club_id: Number(e.target.value) }))}
             >
               {depts.map((d) => (
                 <option key={d.id} value={d.id}>
@@ -150,7 +150,7 @@ export default function AdminManagers() {
                   <td className="px-5 py-3 font-medium text-ink-light dark:text-ink">{m.name}</td>
                   <td className="px-5 py-3 text-ink-light-dim dark:text-ink-dim">{m.roll_no}</td>
                   <td className="px-5 py-3">
-                    <DeptBadge dept={deptById[m.managed_dept_id]} size="sm" />
+                    <DeptBadge dept={deptById[m.managed_club_id]} size="sm" />
                   </td>
                   <td className="px-5 py-3 text-right">
                     <button

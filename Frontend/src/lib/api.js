@@ -37,7 +37,7 @@ export async function getMe() {
 }
 
 export async function getDepts() {
-  return request('/depts')
+  return request('/clubs')
 }
 
 export async function getDeptById(id) {
@@ -53,10 +53,10 @@ export async function getManagers() {
   return request('/admin/managers')
 }
 
-export async function addManager({ user_id, dept_id }) {
+export async function addManager({ user_id, club_id }) {
   return request('/admin/managers', {
     method: 'POST',
-    body: JSON.stringify({ user_id, dept_id }),
+    body: JSON.stringify({ user_id, club_id }),
   })
 }
 
@@ -66,7 +66,7 @@ export async function removeManager(id) {
 
 export async function getEvents({ deptId, status } = {}) {
   const params = new URLSearchParams()
-  if (deptId) params.set('dept_id', deptId)
+  if (deptId) params.set('club_id', deptId)
   if (status) params.set('status', status)
   const suffix = params.toString() ? `?${params.toString()}` : ''
   return request(`/events${suffix}`)

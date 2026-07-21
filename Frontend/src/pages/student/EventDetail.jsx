@@ -33,7 +33,7 @@ export default function EventDetail() {
       return
     }
     const [d, capacity, myStatus] = await Promise.all([
-      api.getDeptById(ev.dept_id),
+      api.getDeptById(ev.club_id),
       api.getEventCapacity(ev.id),
       api.getUserEventStatus(currentUser.id, ev.id),
     ])

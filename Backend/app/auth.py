@@ -1,8 +1,7 @@
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from jose import JWTError, jwt
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.db import get_session
 from app.schemas import CurrentUser, Role
-from app.tables import users
+from app.services.user_provisioning import get_or_create_user
+from app.tables import events, users
 
 
 def _clean_bearer_token(value: str | None) -> str | None:
@@ -39,7 +39,13 @@ def _decode_identity(token: str) -> dict:
     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"message": "jwt secret not configured"})
 
 
-def create_access_token(*, user_id: UUID, roll_no: str, role: Role) -> str:
+def create_access_token(
+    *,
+    user_id: int,
+    roll_no: str,
+    role: Role,
+    portal_profile: dict | None = None,
+) -> str:
     settings = get_settings()
     if not settings.app_jwt_secret:
         raise HTTPException(
@@ -56,6 +62,8 @@ def create_access_token(*, user_id: UUID, roll_no: str, role: Role) -> str:
         "exp": now + timedelta(minutes=settings.access_token_expire_minutes),
         "iss": "iare-event-hub",
     }
+    if portal_profile:
+        payload["portal_profile"] = portal_profile
     return jwt.encode(payload, settings.app_jwt_secret, algorithm=settings.app_jwt_algorithm)
 
 
@@ -81,7 +89,7 @@ async def get_current_user(
     filters = []
     if user_id:
         try:
-            filters.append(users.c.id == UUID(str(user_id)))
+            filters.append(users.c.id == int(user_id))
         except ValueError:
             pass
     if roll_no:
@@ -89,6 +97,9 @@ async def get_current_user(
 
     if not filters:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail={"message": "missing identity"})
+
+    if roll_no and claims.get("portal_profile"):
+        return await get_or_create_user(session, str(roll_no), claims["portal_profile"])
 
     result = await session.execute(select(users).where(or_(*filters)).limit(1))
     row = result.first()
@@ -102,6 +113,53 @@ def require_role(*roles: Role | str) -> Callable:
 
     async def dependency(current_user: CurrentUser = Depends(get_current_user)) -> CurrentUser:
         if current_user.role not in allowed:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"message": "forbidden"})
+        return current_user
+
+    return dependency
+
+
+def require_own_club(club_id_param: str) -> Callable:
+    async def dependency(
+        request: Request,
+        current_user: CurrentUser = Depends(require_role(Role.event_manager, Role.main_admin)),
+    ) -> CurrentUser:
+        if current_user.role == Role.main_admin:
+            return current_user
+
+        club_id = request.path_params.get(club_id_param)
+        if not club_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"message": "forbidden"})
+        if str(current_user.managed_club_id) != str(club_id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"message": "forbidden"})
+        return current_user
+
+    return dependency
+
+
+def require_event_club(event_id_param: str = "event_id") -> Callable:
+    async def dependency(
+        request: Request,
+        current_user: CurrentUser = Depends(require_role(Role.event_manager, Role.main_admin)),
+        session: AsyncSession = Depends(get_session),
+    ) -> CurrentUser:
+        if current_user.role == Role.main_admin:
+            return current_user
+
+        event_id = request.path_params.get(event_id_param)
+        if not event_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"message": "forbidden"})
+
+        try:
+            event_pk = int(event_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"message": "event not found"}) from exc
+
+        result = await session.execute(select(events.c.club_id).where(events.c.id == event_pk))
+        event_row = result.first()
+        if not event_row:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"message": "event not found"})
+        if event_row.club_id != current_user.managed_club_id:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"message": "forbidden"})
         return current_user
 

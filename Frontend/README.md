@@ -62,5 +62,5 @@ The frontend stores the returned app JWT in `localStorage` and sends it as:
 Authorization: Bearer <access_token>
 ```
 
-The stored user shape is the backend `UserOut`: `id`, `roll_no`, `name`, `dept_id`, `year`, `role`,
-and `managed_dept_id`.
+The stored user shape is the backend `UserOut`: `id`, `roll_no`, `name`, `dept`, `year`, `role`,
+and `managed_club_id`.

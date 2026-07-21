@@ -1,10 +1,8 @@
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import Select, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import get_current_user, require_role
+from app.auth import get_current_user, require_event_club, require_role
 from app.db import get_session
 from app.schemas import (
     CurrentUser,
@@ -37,21 +35,12 @@ def _registration_out(row) -> RegistrationOut:
     return RegistrationOut(**dict(row._mapping if hasattr(row, "_mapping") else row))
 
 
-async def _get_event_row(session: AsyncSession, event_id: UUID):
+async def _get_event_row(session: AsyncSession, event_id: int):
     result = await session.execute(select(events).where(events.c.id == event_id))
     row = result.first()
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"message": "event not found"})
     return row
-
-
-def _ensure_event_admin_or_owner(current_user: CurrentUser, event_row) -> None:
-    event = dict(event_row._mapping)
-    if current_user.role == Role.main_admin:
-        return
-    if current_user.role == Role.event_manager and event["dept_id"] == current_user.managed_dept_id:
-        return
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"message": "forbidden"})
 
 
 @router.post("", response_model=EventManagerOut, status_code=status.HTTP_201_CREATED)
@@ -60,14 +49,14 @@ async def create_event(
     current_user: CurrentUser = Depends(require_role(Role.event_manager)),
     session: AsyncSession = Depends(get_session),
 ):
-    if not current_user.managed_dept_id:
+    if not current_user.managed_club_id:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"message": "event manager has no managed department"},
+            detail={"message": "event manager has no managed club"},
         )
 
-    values = payload.model_dump(exclude={"dept_id", "date", "time"}, exclude_none=True)
-    values["dept_id"] = current_user.managed_dept_id
+    values = payload.model_dump(exclude={"club_id", "date", "time"}, exclude_none=True)
+    values["club_id"] = current_user.managed_club_id
     values["created_by"] = current_user.id
     values["status"] = EventStatus.live
 
@@ -78,14 +67,14 @@ async def create_event(
 
 @router.get("", response_model=list[EventOut])
 async def list_events(
-    dept_id: UUID | None = Query(default=None),
+    club_id: int | None = Query(default=None),
     status_filter: EventStatus | None = Query(default=None, alias="status"),
     _: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     query: Select = select(events).order_by(events.c.event_date.asc())
-    if dept_id:
-        query = query.where(events.c.dept_id == dept_id)
+    if club_id:
+        query = query.where(events.c.club_id == club_id)
     if status_filter:
         query = query.where(events.c.status == status_filter)
     result = await session.execute(query)
@@ -94,7 +83,7 @@ async def list_events(
 
 @router.get("/{event_id}", response_model=EventOut)
 async def get_event(
-    event_id: UUID,
+    event_id: int,
     _: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -103,7 +92,7 @@ async def get_event(
 
 @router.get("/{event_id}/capacity", response_model=EventCapacityOut)
 async def event_capacity(
-    event_id: UUID,
+    event_id: int,
     _: CurrentUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -129,12 +118,10 @@ async def event_capacity(
 
 @router.get("/{event_id}/registrations", response_model=list[RegistrationOut])
 async def event_registrations(
-    event_id: UUID,
-    current_user: CurrentUser = Depends(require_role(Role.event_manager, Role.main_admin)),
+    event_id: int,
+    _: CurrentUser = Depends(require_event_club("event_id")),
     session: AsyncSession = Depends(get_session),
 ):
-    event_row = await _get_event_row(session, event_id)
-    _ensure_event_admin_or_owner(current_user, event_row)
     result = await session.execute(
         select(registrations)
         .where(
@@ -148,17 +135,16 @@ async def event_registrations(
 
 @router.patch("/{event_id}", response_model=EventManagerOut)
 async def patch_event(
-    event_id: UUID,
+    event_id: int,
     payload: EventPatch,
-    current_user: CurrentUser = Depends(require_role(Role.event_manager, Role.main_admin)),
+    current_user: CurrentUser = Depends(require_event_club("event_id")),
     session: AsyncSession = Depends(get_session),
 ):
     event_row = await _get_event_row(session, event_id)
-    _ensure_event_admin_or_owner(current_user, event_row)
 
     exclude = {"date", "time"}
     if current_user.role != Role.main_admin:
-        exclude.add("dept_id")
+        exclude.add("club_id")
     values = payload.model_dump(exclude=exclude, exclude_unset=True, exclude_none=True)
     if not values:
         return _event_manager_out(event_row)
@@ -172,12 +158,11 @@ async def patch_event(
 
 @router.delete("/{event_id}", response_model=EventManagerOut)
 async def cancel_event(
-    event_id: UUID,
-    current_user: CurrentUser = Depends(require_role(Role.event_manager, Role.main_admin)),
+    event_id: int,
+    _: CurrentUser = Depends(require_event_club("event_id")),
     session: AsyncSession = Depends(get_session),
 ):
     event_row = await _get_event_row(session, event_id)
-    _ensure_event_admin_or_owner(current_user, event_row)
     result = await session.execute(
         update(events)
         .where(events.c.id == event_id)
@@ -190,12 +175,11 @@ async def cancel_event(
 
 @router.get("/{event_id}/stats", response_model=StatsOut)
 async def event_stats(
-    event_id: UUID,
-    current_user: CurrentUser = Depends(require_role(Role.event_manager, Role.main_admin)),
+    event_id: int,
+    _: CurrentUser = Depends(require_event_club("event_id")),
     session: AsyncSession = Depends(get_session),
 ):
-    event_row = await _get_event_row(session, event_id)
-    _ensure_event_admin_or_owner(current_user, event_row)
+    await _get_event_row(session, event_id)
 
     total_result = await session.execute(
         select(func.count())
@@ -225,7 +209,7 @@ async def event_stats(
     return StatsOut(
         total_confirmed=total_result.scalar_one(),
         by_dept=[
-            DeptStatsBucket(dept_id=row.student_dept_snapshot, count=row.confirmed_count)
+            DeptStatsBucket(dept=row.student_dept_snapshot, count=row.confirmed_count)
             for row in dept_result.fetchall()
         ],
         by_year=[

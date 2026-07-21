@@ -19,7 +19,7 @@ export default function ManagerDashboard() {
     setLoading(true)
     const [deptList, eventList] = await Promise.all([
       api.getDepts(),
-      api.getEvents({ deptId: currentUser.managed_dept_id }),
+      api.getEvents({ deptId: currentUser.managed_club_id }),
     ])
     setDepts(deptList)
     setEvents(eventList)
@@ -48,7 +48,7 @@ export default function ManagerDashboard() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight2 text-ink-light dark:text-ink">
-            {deptById[currentUser.managed_dept_id]?.name} dashboard
+            {deptById[currentUser.managed_club_id]?.name} dashboard
           </h1>
           <p className="text-sm text-ink-light-dim dark:text-ink-dim mt-1">
             {events.length} events · {totalRegistered} total registrations
@@ -75,7 +75,7 @@ export default function ManagerDashboard() {
             <EventCard
               key={event.id}
               event={event}
-              dept={deptById[event.dept_id]}
+              dept={deptById[event.club_id]}
               registeredCount={regCounts[event.id] || 0}
               role="manager"
               onEdit={(ev) => navigate(`/manager/events/${ev.id}/edit`)}

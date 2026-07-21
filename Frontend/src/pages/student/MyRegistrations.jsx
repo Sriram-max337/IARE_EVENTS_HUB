@@ -76,7 +76,7 @@ export default function MyRegistrations() {
             <EventCard
               key={event.id}
               event={event}
-              dept={deptById[event.dept_id]}
+              dept={deptById[event.club_id]}
               registeredCount={regCounts[event.id] || 0}
               role="student"
               userStatus={myStatuses[event.id] || 'none'}

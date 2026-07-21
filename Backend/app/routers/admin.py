@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import require_role
 from app.db import get_session
 from app.schemas import CurrentUser, EventManagerOut, ManagerAssignIn, Role, UserOut
-from app.tables import depts, events, users
+from app.tables import clubs, events, users
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -46,14 +44,14 @@ async def assign_manager(
     _: CurrentUser = Depends(require_role(Role.main_admin)),
     session: AsyncSession = Depends(get_session),
 ):
-    dept_result = await session.execute(select(depts.c.id).where(depts.c.id == payload.dept_id))
-    if not dept_result.first():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"message": "department not found"})
+    club_result = await session.execute(select(clubs.c.id).where(clubs.c.id == payload.club_id))
+    if not club_result.first():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"message": "club not found"})
 
     result = await session.execute(
         update(users)
         .where(users.c.id == payload.user_id)
-        .values(role=Role.event_manager, managed_dept_id=payload.dept_id)
+        .values(role=Role.event_manager, managed_club_id=payload.club_id)
         .returning(users)
     )
     row = result.first()
@@ -66,14 +64,14 @@ async def assign_manager(
 
 @router.delete("/managers/{manager_id}", response_model=UserOut)
 async def remove_manager(
-    manager_id: UUID,
+    manager_id: int,
     _: CurrentUser = Depends(require_role(Role.main_admin)),
     session: AsyncSession = Depends(get_session),
 ):
     result = await session.execute(
         update(users)
         .where(users.c.id == manager_id, users.c.role == Role.event_manager)
-        .values(role=Role.student, managed_dept_id=None)
+        .values(role=Role.student, managed_club_id=None)
         .returning(users)
     )
     row = result.first()

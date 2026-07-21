@@ -35,7 +35,7 @@ export default function EventStats() {
       ])
       setEvent(ev)
       setDepts(allDepts)
-      setDept(allDepts.find((d) => d.id === ev.dept_id))
+      setDept(allDepts.find((d) => d.id === ev.club_id))
       setStats(statData)
       setWaitlistCount(capacity.waitlisted_count)
       setLoading(false)
@@ -49,9 +49,9 @@ export default function EventStats() {
   const deptById = Object.fromEntries(depts.map((d) => [d.id, d]))
 
   const deptData = stats.by_dept.map((d) => ({
-    label: deptById[d.dept_id]?.code || 'Dept',
+    label: d.dept || 'Unknown',
     value: d.count,
-    colorClass: DEPT_BAR_CLASS[deptById[d.dept_id]?.code?.toLowerCase()] || 'bg-accent',
+    colorClass: 'bg-accent',
   }))
 
   const yearData = stats.by_year
