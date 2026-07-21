@@ -5,23 +5,32 @@ import { useToast } from '../../context/ToastContext'
 import DeptBadge from '../../components/DeptBadge'
 import Button from '../../components/Button'
 import ConfirmDialog from '../../components/ConfirmDialog'
-import { Field, Input, Select } from '../../components/FormControls'
+import { Field, Select } from '../../components/FormControls'
 
 export default function AdminManagers() {
   const { showToast } = useToast()
   const [depts, setDepts] = useState([])
+  const [users, setUsers] = useState([])
   const [managers, setManagers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [pendingRemove, setPendingRemove] = useState(null)
-  const [newManager, setNewManager] = useState({ name: '', roll_no: '', dept_id: '' })
+  const [newManager, setNewManager] = useState({ user_id: '', dept_id: '' })
 
   async function load() {
     setLoading(true)
-    const [deptList, managerList] = await Promise.all([api.getDepts(), api.getManagers()])
+    const [deptList, userList, managerList] = await Promise.all([
+      api.getDepts(),
+      api.getUsers(),
+      api.getManagers(),
+    ])
     setDepts(deptList)
+    setUsers(userList)
     setManagers(managerList)
-    setNewManager((m) => ({ ...m, dept_id: m.dept_id || deptList[0]?.id }))
+    setNewManager((m) => ({
+      user_id: m.user_id || userList.find((u) => u.role === 'student')?.id || '',
+      dept_id: m.dept_id || deptList[0]?.id || '',
+    }))
     setLoading(false)
   }
 
@@ -33,10 +42,11 @@ export default function AdminManagers() {
 
   const handleAdd = async (e) => {
     e.preventDefault()
-    if (!newManager.name || !newManager.roll_no) return
+    if (!newManager.user_id || !newManager.dept_id) return
+    const selectedUser = users.find((u) => u.id === newManager.user_id)
     await api.addManager(newManager)
-    showToast(`${newManager.name} added as an event manager.`, 'success')
-    setNewManager({ name: '', roll_no: '', dept_id: depts[0]?.id })
+    showToast(`${selectedUser?.name || 'User'} added as an event manager.`, 'success')
+    setNewManager({ user_id: '', dept_id: depts[0]?.id || '' })
     setShowAdd(false)
     load()
   }
@@ -67,21 +77,23 @@ export default function AdminManagers() {
           onSubmit={handleAdd}
           className="grid sm:grid-cols-3 gap-4 items-end rounded-card border border-border-light dark:border-border bg-surface-light dark:bg-surface p-5"
         >
-          <Field label="Name">
-            <Input
+          <Field label="User">
+            <Select
               required
-              value={newManager.name}
-              onChange={(e) => setNewManager((m) => ({ ...m, name: e.target.value }))}
-              placeholder="Dr. Anitha Menon"
-            />
-          </Field>
-          <Field label="Staff ID">
-            <Input
-              required
-              value={newManager.roll_no}
-              onChange={(e) => setNewManager((m) => ({ ...m, roll_no: e.target.value }))}
-              placeholder="STAFF-CIVIL-03"
-            />
+              value={newManager.user_id}
+              onChange={(e) => setNewManager((m) => ({ ...m, user_id: e.target.value }))}
+            >
+              <option value="" disabled>
+                Select user
+              </option>
+              {users
+                .filter((u) => u.role === 'student')
+                .map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name} - {u.roll_no}
+                  </option>
+                ))}
+            </Select>
           </Field>
           <Field label="Department">
             <Select
@@ -138,7 +150,7 @@ export default function AdminManagers() {
                   <td className="px-5 py-3 font-medium text-ink-light dark:text-ink">{m.name}</td>
                   <td className="px-5 py-3 text-ink-light-dim dark:text-ink-dim">{m.roll_no}</td>
                   <td className="px-5 py-3">
-                    <DeptBadge dept={deptById[m.dept_id]} size="sm" />
+                    <DeptBadge dept={deptById[m.managed_dept_id]} size="sm" />
                   </td>
                   <td className="px-5 py-3 text-right">
                     <button

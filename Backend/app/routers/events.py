@@ -9,11 +9,13 @@ from app.db import get_session
 from app.schemas import (
     CurrentUser,
     DeptStatsBucket,
+    EventCapacityOut,
     EventIn,
     EventManagerOut,
     EventOut,
     EventPatch,
     EventStatus,
+    RegistrationOut,
     Role,
     StatsOut,
     YearStatsBucket,
@@ -29,6 +31,10 @@ def _event_out(row) -> EventOut:
 
 def _event_manager_out(row) -> EventManagerOut:
     return EventManagerOut(**dict(row._mapping if hasattr(row, "_mapping") else row))
+
+
+def _registration_out(row) -> RegistrationOut:
+    return RegistrationOut(**dict(row._mapping if hasattr(row, "_mapping") else row))
 
 
 async def _get_event_row(session: AsyncSession, event_id: UUID):
@@ -93,6 +99,51 @@ async def get_event(
     session: AsyncSession = Depends(get_session),
 ):
     return _event_out(await _get_event_row(session, event_id))
+
+
+@router.get("/{event_id}/capacity", response_model=EventCapacityOut)
+async def event_capacity(
+    event_id: UUID,
+    _: CurrentUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_event_row(session, event_id)
+    result = await session.execute(
+        select(registrations.c.status, func.count().label("status_count"))
+        .where(
+            registrations.c.event_id == event_id,
+            registrations.c.status.in_(["confirmed", "waitlisted"]),
+        )
+        .group_by(registrations.c.status)
+    )
+    counts = {row.status: row.status_count for row in result.fetchall()}
+    confirmed_count = counts.get("confirmed", 0)
+    waitlisted_count = counts.get("waitlisted", 0)
+    return EventCapacityOut(
+        event_id=event_id,
+        confirmed_count=confirmed_count,
+        waitlisted_count=waitlisted_count,
+        active_count=confirmed_count + waitlisted_count,
+    )
+
+
+@router.get("/{event_id}/registrations", response_model=list[RegistrationOut])
+async def event_registrations(
+    event_id: UUID,
+    current_user: CurrentUser = Depends(require_role(Role.event_manager, Role.main_admin)),
+    session: AsyncSession = Depends(get_session),
+):
+    event_row = await _get_event_row(session, event_id)
+    _ensure_event_admin_or_owner(current_user, event_row)
+    result = await session.execute(
+        select(registrations)
+        .where(
+            registrations.c.event_id == event_id,
+            registrations.c.status.in_(["confirmed", "waitlisted"]),
+        )
+        .order_by(registrations.c.registered_at.asc())
+    )
+    return [_registration_out(row) for row in result.fetchall()]
 
 
 @router.patch("/{event_id}", response_model=EventManagerOut)

@@ -14,21 +14,18 @@ export default function AdminEventOverride() {
 
   const [form, setForm] = useState(null)
   const [depts, setDepts] = useState([])
-  const [managers, setManagers] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   useEffect(() => {
     ;(async () => {
-      const [ev, deptList, managerList] = await Promise.all([
+      const [ev, deptList] = await Promise.all([
         api.getEventById(id),
         api.getDepts(),
-        api.getManagers(),
       ])
       setForm(ev)
       setDepts(deptList)
-      setManagers(managerList)
       setLoading(false)
     })()
   }, [id])
@@ -38,7 +35,17 @@ export default function AdminEventOverride() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
-    await api.updateEvent(id, { ...form, capacity: Number(form.capacity) })
+    await api.updateEvent(id, {
+      title: form.title,
+      description: form.description,
+      dept_id: form.dept_id,
+      date: form.date,
+      time: form.time,
+      venue: form.venue,
+      capacity: Number(form.capacity),
+      status: form.status,
+      waitlist_enabled: form.waitlist_enabled,
+    })
     showToast('Event overridden and saved.', 'success')
     setSaving(false)
     navigate('/admin')
@@ -46,7 +53,7 @@ export default function AdminEventOverride() {
 
   const handleDelete = async () => {
     await api.deleteEvent(id)
-    showToast(`"${form.title}" was force-deleted.`, 'info')
+    showToast(`"${form.title}" was cancelled.`, 'info')
     navigate('/admin')
   }
 
@@ -67,11 +74,11 @@ export default function AdminEventOverride() {
         <div>
           <h1 className="text-2xl font-bold tracking-tight2 text-ink-light dark:text-ink">Admin override</h1>
           <p className="text-sm text-ink-light-dim dark:text-ink-dim mt-1">
-            Full edit access, including reassigning department and manager.
+            Full edit access, including reassigning department and status.
           </p>
         </div>
         <Button variant="danger" icon={Trash2} onClick={() => setConfirmDelete(true)}>
-          Force delete
+          Cancel event
         </Button>
       </div>
 
@@ -87,26 +94,15 @@ export default function AdminEventOverride() {
           <Textarea required value={form.description} onChange={(e) => update('description', e.target.value)} />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Department">
-            <Select value={form.dept_id} onChange={(e) => update('dept_id', e.target.value)}>
-              {depts.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Manager">
-            <Select value={form.manager_id} onChange={(e) => update('manager_id', e.target.value)}>
-              {managers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
+        <Field label="Department">
+          <Select value={form.dept_id} onChange={(e) => update('dept_id', e.target.value)}>
+            {depts.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Date">
@@ -133,8 +129,7 @@ export default function AdminEventOverride() {
           </Field>
           <Field label="Status">
             <Select value={form.status} onChange={(e) => update('status', e.target.value)}>
-              <option value="upcoming">Upcoming</option>
-              <option value="past">Past</option>
+              <option value="live">Live</option>
               <option value="cancelled">Cancelled</option>
             </Select>
           </Field>
@@ -158,9 +153,9 @@ export default function AdminEventOverride() {
 
       <ConfirmDialog
         open={confirmDelete}
-        title="Force-delete this event?"
-        description={`"${form.title}" and all its registrations will be permanently removed. This cannot be undone.`}
-        confirmLabel="Force delete"
+        title="Cancel this event?"
+        description={`"${form.title}" will be marked as cancelled. Registrations are preserved for history.`}
+        confirmLabel="Cancel event"
         onConfirm={handleDelete}
         onCancel={() => setConfirmDelete(false)}
       />

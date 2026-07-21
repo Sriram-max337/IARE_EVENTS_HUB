@@ -19,7 +19,7 @@ export default function ManagerDashboard() {
     setLoading(true)
     const [deptList, eventList] = await Promise.all([
       api.getDepts(),
-      api.getEvents({ deptId: currentUser.dept_id }),
+      api.getEvents({ deptId: currentUser.managed_dept_id }),
     ])
     setDepts(deptList)
     setEvents(eventList)
@@ -27,8 +27,8 @@ export default function ManagerDashboard() {
     const counts = {}
     await Promise.all(
       eventList.map(async (ev) => {
-        const regs = await api.getRegistrationsForEvent(ev.id)
-        counts[ev.id] = regs.filter((r) => r.status === 'registered').length
+        const capacity = await api.getEventCapacity(ev.id)
+        counts[ev.id] = capacity.confirmed_count
       })
     )
     setRegCounts(counts)
@@ -48,7 +48,7 @@ export default function ManagerDashboard() {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight2 text-ink-light dark:text-ink">
-            {deptById[currentUser.dept_id]?.name} dashboard
+            {deptById[currentUser.managed_dept_id]?.name} dashboard
           </h1>
           <p className="text-sm text-ink-light-dim dark:text-ink-dim mt-1">
             {events.length} events · {totalRegistered} total registrations

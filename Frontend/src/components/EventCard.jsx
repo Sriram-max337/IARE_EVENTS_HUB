@@ -22,7 +22,7 @@ export default function EventCard({
   registeredCount = 0,
   role = 'student',
   detailHref,
-  userStatus = 'none', // 'none' | 'registered' | 'waitlisted'
+  userStatus = 'none', // 'none' | 'confirmed' | 'waitlisted'
   onRegister,
   onCancel,
   onEdit,
@@ -69,7 +69,7 @@ export default function EventCard({
       <div className="pt-1">
         {role === 'student' && (
           <div onClick={(e) => e.stopPropagation()}>
-            {userStatus === 'registered' && (
+            {userStatus === 'confirmed' && (
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-state-green">Registered</span>
                 <Button variant="secondary" size="sm" onClick={() => onCancel?.(event)}>

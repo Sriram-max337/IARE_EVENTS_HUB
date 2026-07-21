@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Calendar, MapPin, User, Users } from 'lucide-react'
+import { ArrowLeft, Calendar, MapPin, Users } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import * as api from '../../lib/api'
@@ -21,7 +21,6 @@ export default function EventDetail() {
 
   const [event, setEvent] = useState(null)
   const [dept, setDept] = useState(null)
-  const [manager, setManager] = useState(null)
   const [registeredCount, setRegisteredCount] = useState(0)
   const [status, setStatus] = useState('none')
   const [loading, setLoading] = useState(true)
@@ -33,16 +32,14 @@ export default function EventDetail() {
       setLoading(false)
       return
     }
-    const [d, users, regs, myStatus] = await Promise.all([
+    const [d, capacity, myStatus] = await Promise.all([
       api.getDeptById(ev.dept_id),
-      api.getUsers(),
-      api.getRegistrationsForEvent(ev.id),
+      api.getEventCapacity(ev.id),
       api.getUserEventStatus(currentUser.id, ev.id),
     ])
     setEvent(ev)
     setDept(d)
-    setManager(users.find((u) => u.id === ev.manager_id))
-    setRegisteredCount(regs.filter((r) => r.status === 'registered').length)
+    setRegisteredCount(capacity.confirmed_count)
     setStatus(myStatus)
     setLoading(false)
   }
@@ -53,13 +50,9 @@ export default function EventDetail() {
   }, [id])
 
   const handleRegister = async () => {
-    const result = await api.registerForEvent(event.id, currentUser.id)
-    if (result.status === 'rejected') {
-      showToast('This event is full and not accepting a waitlist.', 'error')
-      return
-    }
+    const result = await api.registerForEvent(event.id)
     setStatus(result.status)
-    if (result.status === 'registered') setRegisteredCount((c) => c + 1)
+    if (result.status === 'confirmed') setRegisteredCount((c) => c + 1)
     showToast(
       result.status === 'waitlisted' ? "You're on the waitlist." : 'Registered successfully.',
       'success'
@@ -67,9 +60,9 @@ export default function EventDetail() {
   }
 
   const handleCancel = async () => {
-    await api.cancelRegistration(event.id, currentUser.id)
-    const regs = await api.getRegistrationsForEvent(event.id)
-    setRegisteredCount(regs.filter((r) => r.status === 'registered').length)
+    await api.cancelRegistration(event.id)
+    const capacity = await api.getEventCapacity(event.id)
+    setRegisteredCount(capacity.confirmed_count)
     setStatus('none')
     showToast('Cancelled your spot for this event.', 'info')
   }
@@ -119,11 +112,6 @@ export default function EventDetail() {
           <span className="inline-flex items-center gap-2">
             <MapPin size={15} /> {event.venue}
           </span>
-          {manager && (
-            <span className="inline-flex items-center gap-2">
-              <User size={15} /> {manager.name}
-            </span>
-          )}
         </div>
 
         <p className="text-sm leading-relaxed text-ink-light dark:text-ink">{event.description}</p>
@@ -136,7 +124,7 @@ export default function EventDetail() {
         </div>
 
         <div className="flex items-center gap-3">
-          {status === 'registered' && (
+          {status === 'confirmed' && (
             <>
               <span className="text-sm font-semibold text-state-green">You're registered</span>
               <Button variant="secondary" onClick={handleCancel}>

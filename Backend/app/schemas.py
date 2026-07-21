@@ -136,11 +136,6 @@ class EventOut(BaseModel):
 class EventManagerOut(EventOut):
     created_by: UUID
 
-    @computed_field
-    @property
-    def manager_id(self) -> UUID:
-        return self.created_by
-
 
 class RegistrationIn(BaseModel):
     event_id: UUID
@@ -166,6 +161,13 @@ class RegistrationCancelOut(BaseModel):
     registration: RegistrationOut
     promotion_happened: bool
     promoted_registration_id: UUID | None = None
+
+
+class EventCapacityOut(BaseModel):
+    event_id: UUID
+    confirmed_count: int
+    waitlisted_count: int
+    active_count: int
 
 
 class StatsBucket(BaseModel):

@@ -1,48 +1,65 @@
-import { createContext, useContext, useState } from 'react'
-import { users } from '../lib/mockData'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { getMe } from '../lib/api'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(() => {
     const storedUser = localStorage.getItem('eventhub-user')
-    if (storedUser) return JSON.parse(storedUser)
-    const stored = localStorage.getItem('eventhub-user-id')
-    return (stored && users.find((u) => u.id === stored)) || null
+    try {
+      return storedUser ? JSON.parse(storedUser) : null
+    } catch {
+      localStorage.removeItem('eventhub-user')
+      return null
+    }
   })
   const [token, setToken] = useState(() => localStorage.getItem('eventhub-auth-token'))
+  const [authReady, setAuthReady] = useState(false)
 
-  const login = (userOrId, accessToken) => {
-    if (typeof userOrId === 'object' && userOrId) {
-      setCurrentUser(userOrId)
-      setToken(accessToken)
-      localStorage.setItem('eventhub-user', JSON.stringify(userOrId))
-      if (accessToken) localStorage.setItem('eventhub-auth-token', accessToken)
-      localStorage.removeItem('eventhub-user-id')
+  useEffect(() => {
+    if (!token) {
+      setAuthReady(true)
       return
     }
 
-    const userId = userOrId
-    const user = users.find((u) => u.id === userId)
-    if (user) {
-      setCurrentUser(user)
-      setToken(null)
-      localStorage.setItem('eventhub-user-id', userId)
-      localStorage.setItem('eventhub-user', JSON.stringify(user))
-      localStorage.removeItem('eventhub-auth-token')
+    let cancelled = false
+    getMe()
+      .then((user) => {
+        if (cancelled) return
+        setCurrentUser(user)
+        localStorage.setItem('eventhub-user', JSON.stringify(user))
+      })
+      .catch(() => {
+        if (cancelled) return
+        logout()
+      })
+      .finally(() => {
+        if (!cancelled) setAuthReady(true)
+      })
+
+    return () => {
+      cancelled = true
     }
+  }, [token])
+
+  const login = (user, accessToken) => {
+    setCurrentUser(user)
+    setToken(accessToken)
+    localStorage.setItem('eventhub-user', JSON.stringify(user))
+    localStorage.setItem('eventhub-auth-token', accessToken)
   }
 
   const logout = () => {
     setCurrentUser(null)
     setToken(null)
-    localStorage.removeItem('eventhub-user-id')
     localStorage.removeItem('eventhub-user')
     localStorage.removeItem('eventhub-auth-token')
   }
 
   return (
-    <AuthContext.Provider value={{ currentUser, token, login, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ currentUser, token, authReady, login, logout }}>
+      {children}
+    </AuthContext.Provider>
   )
 }
 

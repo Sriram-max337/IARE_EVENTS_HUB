@@ -55,8 +55,6 @@ export default function EventForm() {
     const payload = {
       ...form,
       capacity: Number(form.capacity),
-      dept_id: currentUser.dept_id,
-      manager_id: currentUser.id,
     }
     if (isEdit) {
       await api.updateEvent(id, payload)

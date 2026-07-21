@@ -25,7 +25,11 @@ function Shell({ children }) {
 }
 
 export default function App() {
-  const { currentUser } = useAuth()
+  const { currentUser, authReady } = useAuth()
+
+  if (!authReady) {
+    return <div className="min-h-screen bg-base-light dark:bg-base" />
+  }
 
   return (
     <Routes>

@@ -19,6 +19,7 @@ export default function EventStats() {
   const navigate = useNavigate()
   const [event, setEvent] = useState(null)
   const [dept, setDept] = useState(null)
+  const [depts, setDepts] = useState([])
   const [stats, setStats] = useState(null)
   const [waitlistCount, setWaitlistCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -26,16 +27,17 @@ export default function EventStats() {
   useEffect(() => {
     ;(async () => {
       setLoading(true)
-      const [ev, statData, allDepts, regs] = await Promise.all([
+      const [ev, statData, allDepts, capacity] = await Promise.all([
         api.getEventById(id),
         api.getEventStats(id),
         api.getDepts(),
-        api.getRegistrationsForEvent(id),
+        api.getEventCapacity(id),
       ])
       setEvent(ev)
+      setDepts(allDepts)
       setDept(allDepts.find((d) => d.id === ev.dept_id))
       setStats(statData)
-      setWaitlistCount(regs.filter((r) => r.status === 'waitlisted').length)
+      setWaitlistCount(capacity.waitlisted_count)
       setLoading(false)
     })()
   }, [id])
@@ -44,14 +46,16 @@ export default function EventStats() {
     return <div className="h-72 max-w-2xl mx-auto rounded-card bg-surface-light dark:bg-surface animate-pulse" />
   }
 
-  const deptData = stats.byDept.map((d) => ({
-    label: d.deptId.toUpperCase(),
+  const deptById = Object.fromEntries(depts.map((d) => [d.id, d]))
+
+  const deptData = stats.by_dept.map((d) => ({
+    label: deptById[d.dept_id]?.code || 'Dept',
     value: d.count,
-    colorClass: DEPT_BAR_CLASS[d.deptId] || 'bg-accent',
+    colorClass: DEPT_BAR_CLASS[deptById[d.dept_id]?.code?.toLowerCase()] || 'bg-accent',
   }))
 
-  const yearData = stats.byYear
-    .sort((a, b) => a.year.localeCompare(b.year))
+  const yearData = stats.by_year
+    .sort((a, b) => a.year - b.year)
     .map((y) => ({ label: y.year, value: y.count }))
 
   return (

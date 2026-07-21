@@ -16,11 +16,10 @@ export default function MyRegistrations() {
 
   async function loadAll() {
     setLoading(true)
-    const [deptList, myRegs] = await Promise.all([api.getDepts(), api.getRegistrationsForUser(currentUser.id)])
+    const [deptList, myRegs] = await Promise.all([api.getDepts(), api.getRegistrationsForUser()])
     setDepts(deptList)
 
-    const eventIds = myRegs.map((r) => r.event_id)
-    const eventList = await Promise.all(eventIds.map((id) => api.getEventById(id)))
+    const eventList = myRegs.map((r) => r.event).filter(Boolean)
     setEvents(eventList.filter(Boolean))
 
     const counts = {}
@@ -30,8 +29,8 @@ export default function MyRegistrations() {
     })
     await Promise.all(
       eventList.filter(Boolean).map(async (ev) => {
-        const regs = await api.getRegistrationsForEvent(ev.id)
-        counts[ev.id] = regs.filter((r) => r.status === 'registered').length
+        const capacity = await api.getEventCapacity(ev.id)
+        counts[ev.id] = capacity.confirmed_count
       })
     )
     setRegCounts(counts)
@@ -47,7 +46,7 @@ export default function MyRegistrations() {
   const deptById = useMemo(() => Object.fromEntries(depts.map((d) => [d.id, d])), [depts])
 
   const handleCancel = async (event) => {
-    await api.cancelRegistration(event.id, currentUser.id)
+    await api.cancelRegistration(event.id)
     showToast(`Cancelled your spot for ${event.title}.`, 'info')
     loadAll()
   }

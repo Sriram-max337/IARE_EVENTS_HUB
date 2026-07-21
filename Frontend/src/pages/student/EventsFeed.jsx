@@ -18,17 +18,20 @@ export default function EventsFeed() {
 
   async function loadAll() {
     setLoading(true)
-    const [deptList, eventList] = await Promise.all([api.getDepts(), api.getEvents({ status: 'upcoming' })])
+    const [deptList, eventList, myRegs] = await Promise.all([
+      api.getDepts(),
+      api.getEvents({ status: 'live' }),
+      api.getRegistrationsForUser(),
+    ])
     setDepts(deptList)
     setEvents(eventList)
 
     const counts = {}
-    const statuses = {}
+    const statuses = Object.fromEntries(myRegs.map((r) => [r.event_id, r.status]))
     await Promise.all(
       eventList.map(async (ev) => {
-        const regs = await api.getRegistrationsForEvent(ev.id)
-        counts[ev.id] = regs.filter((r) => r.status === 'registered').length
-        statuses[ev.id] = await api.getUserEventStatus(currentUser.id, ev.id)
+        const capacity = await api.getEventCapacity(ev.id)
+        counts[ev.id] = capacity.confirmed_count
       })
     )
     setRegCounts(counts)
@@ -46,20 +49,16 @@ export default function EventsFeed() {
   const filtered = useMemo(() => {
     if (tab === 'mydept') return events.filter((e) => e.dept_id === currentUser.dept_id)
     if (tab === 'registered')
-      return events.filter((e) => ['registered', 'waitlisted'].includes(myStatuses[e.id]))
+      return events.filter((e) => ['confirmed', 'waitlisted'].includes(myStatuses[e.id]))
     return events
   }, [tab, events, myStatuses, currentUser.dept_id])
 
   const handleRegister = async (event) => {
-    const result = await api.registerForEvent(event.id, currentUser.id)
-    if (result.status === 'rejected') {
-      showToast('This event is full and not accepting a waitlist.', 'error')
-      return
-    }
+    const result = await api.registerForEvent(event.id)
     setMyStatuses((prev) => ({ ...prev, [event.id]: result.status }))
     setRegCounts((prev) => ({
       ...prev,
-      [event.id]: result.status === 'registered' ? (prev[event.id] || 0) + 1 : prev[event.id] || 0,
+      [event.id]: result.status === 'confirmed' ? (prev[event.id] || 0) + 1 : prev[event.id] || 0,
     }))
     showToast(
       result.status === 'waitlisted'
@@ -70,10 +69,10 @@ export default function EventsFeed() {
   }
 
   const handleCancel = async (event) => {
-    await api.cancelRegistration(event.id, currentUser.id)
+    await api.cancelRegistration(event.id)
     setMyStatuses((prev) => ({ ...prev, [event.id]: 'none' }))
-    const regs = await api.getRegistrationsForEvent(event.id)
-    setRegCounts((prev) => ({ ...prev, [event.id]: regs.filter((r) => r.status === 'registered').length }))
+    const capacity = await api.getEventCapacity(event.id)
+    setRegCounts((prev) => ({ ...prev, [event.id]: capacity.confirmed_count }))
     showToast(`Cancelled your spot for ${event.title}.`, 'info')
   }
 
@@ -97,7 +96,7 @@ export default function EventsFeed() {
           {
             value: 'registered',
             label: 'Registered',
-            count: events.filter((e) => ['registered', 'waitlisted'].includes(myStatuses[e.id])).length,
+            count: events.filter((e) => ['confirmed', 'waitlisted'].includes(myStatuses[e.id])).length,
           },
         ]}
         active={tab}

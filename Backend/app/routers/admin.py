@@ -31,6 +31,15 @@ async def list_managers(
     return [_user_out(row) for row in result.fetchall()]
 
 
+@router.get("/users", response_model=list[UserOut])
+async def list_users(
+    _: CurrentUser = Depends(require_role(Role.main_admin)),
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(select(users).order_by(users.c.name.asc()))
+    return [_user_out(row) for row in result.fetchall()]
+
+
 @router.post("/managers", response_model=UserOut)
 async def assign_manager(
     payload: ManagerAssignIn,

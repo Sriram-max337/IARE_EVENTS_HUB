@@ -6,7 +6,6 @@ import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
 import { useToast } from '../context/ToastContext'
 import { loginWithSamvidha } from '../lib/api'
-import { users } from '../lib/mockData'
 import Button from '../components/Button'
 import { Field, Input } from '../components/FormControls'
 
@@ -14,12 +13,6 @@ const HOME_BY_ROLE = {
   student: '/events',
   event_manager: '/manager',
   main_admin: '/admin',
-}
-
-const ROLE_LABEL = {
-  student: 'Student',
-  event_manager: 'Event Manager',
-  main_admin: 'App Admin',
 }
 
 export default function LoginPage() {
@@ -30,18 +23,6 @@ export default function LoginPage() {
   const [rollNo, setRollNo] = useState('')
   const [password, setPassword] = useState('')
   const [signingIn, setSigningIn] = useState(false)
-
-  const demoUsers = {
-    student: users.find((u) => u.id === 'u1'),
-    event_manager: users.find((u) => u.id === 'm1'),
-    main_admin: users.find((u) => u.id === 'a1'),
-  }
-
-  const handleDemoLogin = (userId) => {
-    login(userId)
-    const user = users.find((u) => u.id === userId)
-    navigate(HOME_BY_ROLE[user.role])
-  }
 
   const handleSamvidhaLogin = async (e) => {
     e.preventDefault()
@@ -109,27 +90,6 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <div className="flex items-center gap-3 my-5">
-            <div className="h-px flex-1 bg-border-light dark:bg-border" />
-            <span className="text-xs text-ink-light-dim dark:text-ink-dim">Quick demo access</span>
-            <div className="h-px flex-1 bg-border-light dark:bg-border" />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {Object.entries(demoUsers).map(([role, user]) => (
-              <button
-                key={role}
-                onClick={() => handleDemoLogin(user.id)}
-                className="flex items-center justify-between rounded-lg border border-border-light dark:border-border px-3.5 py-2.5 text-left hover:border-border-light-bright dark:hover:border-border-bright hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"
-              >
-                <span>
-                  <span className="block text-sm font-medium text-ink-light dark:text-ink">{user.name}</span>
-                  <span className="block text-xs text-ink-light-dim dark:text-ink-dim">{ROLE_LABEL[role]}</span>
-                </span>
-                <ArrowRight size={14} className="text-ink-light-dim dark:text-ink-dim" />
-              </button>
-            ))}
-          </div>
         </div>
 
         <div className="flex items-center justify-center gap-2 mt-8 opacity-80">

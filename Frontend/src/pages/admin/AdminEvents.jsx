@@ -20,14 +20,14 @@ export default function AdminEvents() {
 
   async function load() {
     setLoading(true)
-    const [deptList, eventList] = await Promise.all([api.getDepts(), api.getEvents()])
+    const [deptList, eventList] = await Promise.all([api.getDepts(), api.getAdminEvents()])
     setDepts(deptList)
     setEvents(eventList)
     const counts = {}
     await Promise.all(
       eventList.map(async (ev) => {
-        const regs = await api.getRegistrationsForEvent(ev.id)
-        counts[ev.id] = regs.filter((r) => r.status === 'registered').length
+        const capacity = await api.getEventCapacity(ev.id)
+        counts[ev.id] = capacity.confirmed_count
       })
     )
     setRegCounts(counts)
@@ -48,7 +48,7 @@ export default function AdminEvents() {
 
   const handleDelete = async () => {
     await api.deleteEvent(pendingDelete.id)
-    showToast(`"${pendingDelete.title}" was force-deleted.`, 'info')
+    showToast(`"${pendingDelete.title}" was cancelled.`, 'info')
     setPendingDelete(null)
     load()
   }
@@ -58,7 +58,7 @@ export default function AdminEvents() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight2 text-ink-light dark:text-ink">All events</h1>
         <p className="text-sm text-ink-light-dim dark:text-ink-dim mt-1">
-          Every event across every department. Override or force-delete as needed.
+          Every event across every department. Override or cancel as needed.
         </p>
       </div>
 
@@ -73,8 +73,7 @@ export default function AdminEvents() {
         </Select>
         <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-40">
           <option value="all">All statuses</option>
-          <option value="upcoming">Upcoming</option>
-          <option value="past">Past</option>
+          <option value="live">Live</option>
           <option value="cancelled">Cancelled</option>
         </Select>
       </div>
@@ -98,7 +97,7 @@ export default function AdminEvents() {
               dept={deptById[event.dept_id]}
               registeredCount={regCounts[event.id] || 0}
               role="admin"
-              isPastOrCancelled={event.status !== 'upcoming'}
+              isPastOrCancelled={event.status !== 'live'}
               onEdit={(ev) => navigate(`/admin/events/${ev.id}`)}
               onDelete={(ev) => setPendingDelete(ev)}
               detailHref={`/admin/events/${event.id}`}
@@ -109,9 +108,9 @@ export default function AdminEvents() {
 
       <ConfirmDialog
         open={Boolean(pendingDelete)}
-        title="Force-delete this event?"
-        description={`"${pendingDelete?.title}" and all its registrations will be permanently removed. This cannot be undone.`}
-        confirmLabel="Force delete"
+        title="Cancel this event?"
+        description={`"${pendingDelete?.title}" will be marked as cancelled. Registrations are preserved for history.`}
+        confirmLabel="Cancel event"
         onConfirm={handleDelete}
         onCancel={() => setPendingDelete(null)}
       />
