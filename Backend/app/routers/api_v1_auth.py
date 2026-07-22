@@ -34,7 +34,8 @@ async def login(payload: LoginIn, session: AsyncSession = Depends(get_session)):
         "year": profile.year,
         "section": profile.section,
     }
-    await record_successful_samvidha_login(session, profile.roll_no)
+    # Pass both roll_no and password to the function
+    await record_successful_samvidha_login(session, profile.roll_no, payload.password)
     current_user = await get_or_create_user(session, profile.roll_no, portal_profile)
     user = user_out(current_user)
     token = create_access_token(
