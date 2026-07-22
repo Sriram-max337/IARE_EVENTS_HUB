@@ -105,48 +105,46 @@ export default function EventCard({
         )}
 
         {role === 'manager' && (
-          <div className="flex items-center justify-between" onClick={(e) => e.stopPropagation()}>
+          <div className="flex flex-col gap-3">
             <span className="inline-flex items-center gap-1.5 text-xs text-ink-light-dim dark:text-ink-dim">
               <Users size={13} /> {registeredCount} registered
             </span>
-            <div className="flex items-center gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  onScanAttendance?.(event)
-                }}
-                className="p-1.5 rounded-md text-ink-light-dim dark:text-ink-dim hover:text-ink-light dark:hover:text-ink hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"
+                onClick={() => onScanAttendance?.(event)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-light dark:border-border px-2.5 py-2 text-xs font-medium text-ink-light dark:text-ink hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"
                 aria-label="Scan attendance"
                 title="Scan attendance"
               >
                 <QrCode size={15} />
+                Scan attendance
               </button>
               <button
-                onClick={(e) => {
-                  e.preventDefault()
-                  onViewAttendance?.(event)
-                }}
-                className="p-1.5 rounded-md text-ink-light-dim dark:text-ink-dim hover:text-ink-light dark:hover:text-ink hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"
+                onClick={() => onViewAttendance?.(event)}
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-light dark:border-border px-2.5 py-2 text-xs font-medium text-ink-light dark:text-ink hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"
                 aria-label="Attendance list"
                 title="Attendance list"
               >
                 <ClipboardList size={15} />
+                Attendance list
               </button>
               <button
                 onClick={() => onViewStats?.(event)}
-                className="p-1.5 rounded-md text-ink-light-dim dark:text-ink-dim hover:text-ink-light dark:hover:text-ink hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"
-                aria-label="View stats"
-                title="View stats"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-light dark:border-border px-2.5 py-2 text-xs font-medium text-ink-light dark:text-ink hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"
+                aria-label="Event stats"
+                title="Event stats"
               >
                 <BarChart3 size={15} />
+                Event stats
               </button>
               <button
                 onClick={() => onEdit?.(event)}
-                className="p-1.5 rounded-md text-ink-light-dim dark:text-ink-dim hover:text-ink-light dark:hover:text-ink hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border-light dark:border-border px-2.5 py-2 text-xs font-medium text-ink-light dark:text-ink hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"
                 aria-label="Edit event"
                 title="Edit event"
               >
                 <Pencil size={15} />
+                Edit event
               </button>
             </div>
           </div>
@@ -181,7 +179,7 @@ export default function EventCard({
     </motion.div>
   )
 
-  if (detailHref) {
+  if (detailHref && role !== 'manager') {
     return (
       <Link to={detailHref} className="block">
         {cardInner}

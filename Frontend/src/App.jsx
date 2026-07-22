@@ -10,6 +10,8 @@ import MyRegistrations from './pages/student/MyRegistrations'
 import ManagerDashboard from './pages/manager/ManagerDashboard'
 import EventForm from './pages/manager/EventForm'
 import EventStats from './pages/manager/EventStats'
+import EventScan from './pages/manager/EventScan'
+import EventAttendance from './pages/manager/EventAttendance'
 import AdminEvents from './pages/admin/AdminEvents'
 import AdminManagers from './pages/admin/AdminManagers'
 import AdminEventOverride from './pages/admin/AdminEventOverride'
@@ -107,6 +109,26 @@ export default function App() {
           <RoleGate allow={['event_manager', 'main_admin']}>
             <Shell>
               <EventStats />
+            </Shell>
+          </RoleGate>
+        }
+      />
+      <Route
+        path="/manager/events/:id/scan"
+        element={
+          <RoleGate allow={['event_manager', 'main_admin']}>
+            <Shell>
+              <EventScan />
+            </Shell>
+          </RoleGate>
+        }
+      />
+      <Route
+        path="/manager/events/:id/attendance"
+        element={
+          <RoleGate allow={['event_manager', 'main_admin']}>
+            <Shell>
+              <EventAttendance />
             </Shell>
           </RoleGate>
         }
