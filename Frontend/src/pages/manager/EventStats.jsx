@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Users, Clock3 } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Clock3, Percent, Users } from 'lucide-react'
+import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
 import * as api from '../../lib/api'
 import StatBarChart from '../../components/StatBarChart'
 import DeptBadge from '../../components/DeptBadge'
@@ -17,49 +19,66 @@ const DEPT_BAR_CLASS = {
 export default function EventStats() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { currentUser } = useAuth()
+  const { showToast } = useToast()
   const [event, setEvent] = useState(null)
   const [dept, setDept] = useState(null)
-  const [depts, setDepts] = useState([])
   const [stats, setStats] = useState(null)
-  const [waitlistCount, setWaitlistCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    let cancelled = false
     ;(async () => {
-      setLoading(true)
-      const [ev, statData, allDepts, capacity] = await Promise.all([
-        api.getEventById(id),
-        api.getEventStats(id),
-        api.getDepts(),
-        api.getEventCapacity(id),
-      ])
-      setEvent(ev)
-      setDepts(allDepts)
-      setDept(allDepts.find((d) => d.id === ev.club_id))
-      setStats(statData)
-      setWaitlistCount(capacity.waitlisted_count)
-      setLoading(false)
-    })()
-  }, [id])
+      try {
+        setLoading(true)
+        const [ev, allDepts] = await Promise.all([api.getEventById(id), api.getDepts()])
+        if (
+          currentUser.role === 'event_manager' &&
+          Number(ev.club_id) !== Number(currentUser.managed_club_id)
+        ) {
+          showToast('You cannot view stats for this event.', 'error')
+          navigate('/manager', { replace: true })
+          return
+        }
 
-  if (loading || !event) {
+        const statData = await api.getEventStats(id)
+        if (cancelled) return
+        setEvent(ev)
+        setDept(allDepts.find((d) => d.id === ev.club_id))
+        setStats(statData)
+      } catch (err) {
+        showToast(err.message, 'error')
+        navigate(currentUser.role === 'main_admin' ? '/admin' : '/manager', { replace: true })
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser.managed_club_id, currentUser.role, id, navigate, showToast])
+
+  if (loading || !event || !stats) {
     return <div className="h-72 max-w-2xl mx-auto rounded-card bg-surface-light dark:bg-surface animate-pulse" />
   }
 
-  const deptById = Object.fromEntries(depts.map((d) => [d.id, d]))
+  const deptBreakdown = stats.dept_breakdown || stats.by_dept || []
+  const yearBreakdown = stats.year_breakdown || stats.by_year || []
 
-  const deptData = stats.by_dept.map((d) => ({
+  const deptData = deptBreakdown.map((d) => ({
     label: d.dept || 'Unknown',
     value: d.count,
     colorClass: 'bg-accent',
   }))
 
-  const yearData = stats.by_year
+  const yearData = yearBreakdown
     .sort((a, b) => a.year - b.year)
-    .map((y) => ({ label: y.year, value: y.count }))
+    .map((y) => ({ label: `Year ${y.year}`, value: y.count }))
+
+  const attendancePercent = Math.round((stats.attendance_rate || 0) * 100)
 
   return (
-    <div className="max-w-2xl mx-auto flex flex-col gap-6">
+    <div className="max-w-3xl mx-auto flex flex-col gap-6">
       <button
         onClick={() => navigate(-1)}
         className="inline-flex items-center gap-1.5 text-sm text-ink-light-dim dark:text-ink-dim hover:text-ink-light dark:hover:text-ink transition-colors w-fit"
@@ -72,16 +91,16 @@ export default function EventStats() {
           <DeptBadge dept={dept} size="sm" />
         </div>
         <h1 className="text-2xl font-bold tracking-tight2 text-ink-light dark:text-ink">{event.title}</h1>
-        <p className="text-sm text-ink-light-dim dark:text-ink-dim mt-1">Registration breakdown</p>
+        <p className="text-sm text-ink-light-dim dark:text-ink-dim mt-1">Registration and attendance breakdown</p>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-4 gap-4">
         <div className="rounded-card border border-border-light dark:border-border bg-surface-light dark:bg-surface p-5">
           <div className="flex items-center gap-2 text-ink-light-dim dark:text-ink-dim text-xs mb-1">
-            <Users size={13} /> Total registered
+            <Users size={13} /> Confirmed
           </div>
           <p className="text-3xl font-bold text-ink-light dark:text-ink tracking-tight2">
-            {stats.total}
+            {stats.total_confirmed}
             <span className="text-base font-medium text-ink-light-dim dark:text-ink-dim"> / {event.capacity}</span>
           </p>
         </div>
@@ -89,7 +108,19 @@ export default function EventStats() {
           <div className="flex items-center gap-2 text-ink-light-dim dark:text-ink-dim text-xs mb-1">
             <Clock3 size={13} /> Waitlisted
           </div>
-          <p className="text-3xl font-bold text-ink-light dark:text-ink tracking-tight2">{waitlistCount}</p>
+          <p className="text-3xl font-bold text-ink-light dark:text-ink tracking-tight2">{stats.total_waitlisted}</p>
+        </div>
+        <div className="rounded-card border border-border-light dark:border-border bg-surface-light dark:bg-surface p-5">
+          <div className="flex items-center gap-2 text-ink-light-dim dark:text-ink-dim text-xs mb-1">
+            <CheckCircle2 size={13} /> Attended
+          </div>
+          <p className="text-3xl font-bold text-ink-light dark:text-ink tracking-tight2">{stats.total_attended}</p>
+        </div>
+        <div className="rounded-card border border-border-light dark:border-border bg-surface-light dark:bg-surface p-5">
+          <div className="flex items-center gap-2 text-ink-light-dim dark:text-ink-dim text-xs mb-1">
+            <Percent size={13} /> Attendance
+          </div>
+          <p className="text-3xl font-bold text-ink-light dark:text-ink tracking-tight2">{attendancePercent}%</p>
         </div>
       </div>
 

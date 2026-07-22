@@ -107,6 +107,8 @@ class EventPatch(BaseModel):
             self.event_date = datetime.combine(datetime.fromisoformat(self.date).date(), parsed_time, tzinfo=UTC)
         if self.event_date and self.event_date.tzinfo is None:
             self.event_date = self.event_date.replace(tzinfo=UTC)
+        if self.event_date and self.event_date <= datetime.now(UTC):
+            raise ValueError("event_date cannot be in the past")
         return self
 
 
@@ -205,13 +207,26 @@ class YearStatsBucket(StatsBucket):
 
 class StatsOut(BaseModel):
     total_confirmed: int
-    by_dept: list[DeptStatsBucket]
-    by_year: list[YearStatsBucket]
+    total_waitlisted: int
+    dept_breakdown: list[DeptStatsBucket]
+    year_breakdown: list[YearStatsBucket]
+    total_attended: int
+    attendance_rate: float
 
     @computed_field
     @property
     def total(self) -> int:
         return self.total_confirmed
+
+    @computed_field
+    @property
+    def by_dept(self) -> list[DeptStatsBucket]:
+        return self.dept_breakdown
+
+    @computed_field
+    @property
+    def by_year(self) -> list[YearStatsBucket]:
+        return self.year_breakdown
 
 
 class ManagerAssignIn(BaseModel):

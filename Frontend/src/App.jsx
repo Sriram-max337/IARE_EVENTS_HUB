@@ -94,7 +94,7 @@ export default function App() {
       <Route
         path="/manager/events/:id/edit"
         element={
-          <RoleGate allow={['event_manager']}>
+          <RoleGate allow={['event_manager', 'main_admin']}>
             <Shell>
               <EventForm />
             </Shell>
@@ -104,7 +104,7 @@ export default function App() {
       <Route
         path="/manager/events/:id/stats"
         element={
-          <RoleGate allow={['event_manager']}>
+          <RoleGate allow={['event_manager', 'main_admin']}>
             <Shell>
               <EventStats />
             </Shell>

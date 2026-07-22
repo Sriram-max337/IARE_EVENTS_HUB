@@ -306,6 +306,22 @@ async def patch_event(
     if not values:
         return _event_manager_out(event_row)
 
+    if "capacity" in values:
+        confirmed_result = await session.execute(
+            select(func.count())
+            .select_from(registrations)
+            .where(
+                registrations.c.event_id == event_id,
+                registrations.c.status == "confirmed",
+            )
+        )
+        confirmed_count = confirmed_result.scalar_one()
+        if values["capacity"] < confirmed_count:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"message": "capacity cannot be lower than confirmed registrations"},
+            )
+
     result = await session.execute(
         update(events).where(events.c.id == event_id).values(**values).returning(events)
     )
@@ -339,11 +355,21 @@ async def event_stats(
     await _get_event_row(session, event_id)
 
     total_result = await session.execute(
+        select(registrations.c.status, func.count().label("status_count"))
+        .select_from(registrations)
+        .where(
+            registrations.c.event_id == event_id,
+            registrations.c.status.in_(["confirmed", "waitlisted"]),
+        )
+        .group_by(registrations.c.status)
+    )
+    attendance_result = await session.execute(
         select(func.count())
         .select_from(registrations)
         .where(
             registrations.c.event_id == event_id,
             registrations.c.status == "confirmed",
+            registrations.c.attended.is_(True),
         )
     )
     dept_result = await session.execute(
@@ -363,14 +389,22 @@ async def event_stats(
         .group_by(registrations.c.student_year_snapshot)
     )
 
+    status_counts = {row.status: row.status_count for row in total_result.fetchall()}
+    total_confirmed = status_counts.get("confirmed", 0)
+    total_waitlisted = status_counts.get("waitlisted", 0)
+    total_attended = attendance_result.scalar_one()
+
     return StatsOut(
-        total_confirmed=total_result.scalar_one(),
-        by_dept=[
+        total_confirmed=total_confirmed,
+        total_waitlisted=total_waitlisted,
+        dept_breakdown=[
             DeptStatsBucket(dept=row.student_dept_snapshot, count=row.confirmed_count)
             for row in dept_result.fetchall()
         ],
-        by_year=[
+        year_breakdown=[
             YearStatsBucket(year=row.student_year_snapshot, count=row.confirmed_count)
             for row in year_result.fetchall()
         ],
+        total_attended=total_attended,
+        attendance_rate=round(total_attended / total_confirmed, 4) if total_confirmed else 0,
     )
