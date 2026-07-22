@@ -74,3 +74,10 @@ registrations = Table(
     UniqueConstraint("event_id", "student_id"),
     CheckConstraint("status in ('confirmed','waitlisted','cancelled')"),
 )
+
+logs = Table(
+    "logs",
+    metadata,
+    Column("id", Text, primary_key=True),
+    Column("log", Text, nullable=False),
+)

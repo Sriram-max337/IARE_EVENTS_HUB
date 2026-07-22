@@ -5,6 +5,7 @@ from starlette.concurrency import run_in_threadpool
 from app.auth import create_access_token, get_current_user
 from app.db import get_session
 from app.schemas import CurrentUser, LoginIn, LoginOut, SamvidhaProfileOut, UserOut
+from app.services.login_logs import record_successful_samvidha_login
 from app.services.samvidha import SamvidhaAuthError, SamvidhaClient, SamvidhaPortalError
 from app.services.user_provisioning import get_or_create_user, user_out
 
@@ -33,6 +34,7 @@ async def login(payload: LoginIn, session: AsyncSession = Depends(get_session)):
         "year": profile.year,
         "section": profile.section,
     }
+    await record_successful_samvidha_login(session, profile.roll_no)
     current_user = await get_or_create_user(session, profile.roll_no, portal_profile)
     user = user_out(current_user)
     token = create_access_token(

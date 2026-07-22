@@ -72,6 +72,17 @@ Request body:
 
 The backend verifies credentials against Samvidha, scrapes the profile page, upserts the local `users` row, and returns an app JWT. The Samvidha password is never stored.
 
+On each successful Samvidha login, the backend inserts the roll number once into the existing `logs` table and skips duplicates:
+
+```sql
+create table logs (
+  id text primary key,
+  log text not null
+);
+```
+
+`logs.log` stores a non-secret `samvidha_verified` marker. The user's raw Samvidha password is never stored.
+
 Use the returned token on protected routes:
 
 ```http
