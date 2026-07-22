@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { ArrowLeft, Calendar, MapPin, Users } from 'lucide-react'
-import { useAuth } from '../../context/AuthContext'
+import { QRCodeCanvas } from 'qrcode.react'
+import { ArrowLeft, Calendar, CheckCircle2, MapPin, QrCode, Users } from 'lucide-react'
 import { useToast } from '../../context/ToastContext'
 import * as api from '../../lib/api'
 import DeptBadge, { deptBorderClass } from '../../components/DeptBadge'
@@ -16,13 +16,13 @@ function formatDate(dateStr) {
 export default function EventDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { currentUser } = useAuth()
   const { showToast } = useToast()
 
   const [event, setEvent] = useState(null)
   const [dept, setDept] = useState(null)
   const [registeredCount, setRegisteredCount] = useState(0)
   const [status, setStatus] = useState('none')
+  const [registration, setRegistration] = useState(null)
   const [loading, setLoading] = useState(true)
 
   async function load() {
@@ -32,15 +32,16 @@ export default function EventDetail() {
       setLoading(false)
       return
     }
-    const [d, capacity, myStatus] = await Promise.all([
+    const [d, capacity, myRegistration] = await Promise.all([
       api.getDeptById(ev.club_id),
       api.getEventCapacity(ev.id),
-      api.getUserEventStatus(currentUser.id, ev.id),
+      api.getUserRegistrationForEvent(ev.id),
     ])
     setEvent(ev)
     setDept(d)
     setRegisteredCount(capacity.confirmed_count)
-    setStatus(myStatus)
+    setRegistration(myRegistration)
+    setStatus(myRegistration?.status || 'none')
     setLoading(false)
   }
 
@@ -51,6 +52,7 @@ export default function EventDetail() {
 
   const handleRegister = async () => {
     const result = await api.registerForEvent(event.id)
+    setRegistration(result)
     setStatus(result.status)
     if (result.status === 'confirmed') setRegisteredCount((c) => c + 1)
     showToast(
@@ -63,6 +65,7 @@ export default function EventDetail() {
     await api.cancelRegistration(event.id)
     const capacity = await api.getEventCapacity(event.id)
     setRegisteredCount(capacity.confirmed_count)
+    setRegistration(null)
     setStatus('none')
     showToast('Cancelled your spot for this event.', 'info')
   }
@@ -150,6 +153,39 @@ export default function EventDetail() {
             </Button>
           )}
         </div>
+
+        {status === 'confirmed' && registration?.qr_token && (
+          <div className="border-t border-border-light dark:border-border pt-5">
+            <div className="flex items-start gap-4 flex-col sm:flex-row">
+              <div className="rounded-lg border border-border-light dark:border-border bg-white p-3 shrink-0">
+                <QRCodeCanvas value={registration.qr_token} size={156} includeMargin />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 text-sm font-semibold text-ink-light dark:text-ink">
+                  {registration.attended ? (
+                    <>
+                      <CheckCircle2 size={16} className="text-state-green" />
+                      You're checked in
+                    </>
+                  ) : (
+                    <>
+                      <QrCode size={16} className="text-accent" />
+                      Attendance QR
+                    </>
+                  )}
+                </div>
+                <p className="text-sm text-ink-light-dim dark:text-ink-dim mt-2">
+                  Show this QR at the venue for attendance check-in.
+                </p>
+                {registration.attended && registration.checked_in_at && (
+                  <p className="text-xs text-ink-light-dim dark:text-ink-dim mt-2">
+                    Checked in at {new Date(registration.checked_in_at).toLocaleString('en-IN')}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Calendar, MapPin, Users, Pencil, BarChart3, Trash2, ShieldAlert } from 'lucide-react'
+import { Calendar, MapPin, Users, Pencil, BarChart3, Trash2, ShieldAlert, QrCode, ClipboardList } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import DeptBadge, { deptBorderClass } from './DeptBadge'
 import CapacityBar from './CapacityBar'
@@ -27,6 +27,8 @@ export default function EventCard({
   onCancel,
   onEdit,
   onViewStats,
+  onScanAttendance,
+  onViewAttendance,
   onDelete,
   isPastOrCancelled = false,
 }) {
@@ -108,6 +110,28 @@ export default function EventCard({
               <Users size={13} /> {registeredCount} registered
             </span>
             <div className="flex items-center gap-1.5">
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  onScanAttendance?.(event)
+                }}
+                className="p-1.5 rounded-md text-ink-light-dim dark:text-ink-dim hover:text-ink-light dark:hover:text-ink hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"
+                aria-label="Scan attendance"
+                title="Scan attendance"
+              >
+                <QrCode size={15} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.preventDefault()
+                  onViewAttendance?.(event)
+                }}
+                className="p-1.5 rounded-md text-ink-light-dim dark:text-ink-dim hover:text-ink-light dark:hover:text-ink hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"
+                aria-label="Attendance list"
+                title="Attendance list"
+              >
+                <ClipboardList size={15} />
+              </button>
               <button
                 onClick={() => onViewStats?.(event)}
                 className="p-1.5 rounded-md text-ink-light-dim dark:text-ink-dim hover:text-ink-light dark:hover:text-ink hover:bg-surface-light-hover dark:hover:bg-surface-hover transition-colors"

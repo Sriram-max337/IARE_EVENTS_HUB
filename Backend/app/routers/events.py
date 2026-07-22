@@ -1,10 +1,18 @@
+import csv
+from io import StringIO
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import Select, func, insert, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import get_current_user, require_event_club, require_role
 from app.db import get_session
 from app.schemas import (
+    AttendanceRowOut,
+    CheckInIn,
+    CheckInOut,
     CurrentUser,
     DeptStatsBucket,
     EventCapacityOut,
@@ -18,7 +26,7 @@ from app.schemas import (
     StatsOut,
     YearStatsBucket,
 )
-from app.tables import events, registrations
+from app.tables import events, registrations, users
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -33,6 +41,16 @@ def _event_manager_out(row) -> EventManagerOut:
 
 def _registration_out(row) -> RegistrationOut:
     return RegistrationOut(**dict(row._mapping if hasattr(row, "_mapping") else row))
+
+
+def _attendance_row_out(row) -> AttendanceRowOut:
+    return AttendanceRowOut(
+        student_name=row.student_name,
+        roll_no=row.roll_no,
+        dept=row.dept,
+        attended=row.attended,
+        checked_in_at=row.checked_in_at,
+    )
 
 
 async def _get_event_row(session: AsyncSession, event_id: int):
@@ -131,6 +149,145 @@ async def event_registrations(
         .order_by(registrations.c.registered_at.asc())
     )
     return [_registration_out(row) for row in result.fetchall()]
+
+
+@router.post("/{event_id}/checkin", response_model=CheckInOut)
+async def check_in_registration(
+    event_id: int,
+    payload: CheckInIn,
+    _: CurrentUser = Depends(require_event_club("event_id")),
+    session: AsyncSession = Depends(get_session, use_cache=False),
+):
+    try:
+        qr_token = UUID(payload.qr_token)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={"message": "registration not found"},
+        ) from exc
+
+    async with session.begin():
+        reg_result = await session.execute(
+            select(registrations)
+            .where(registrations.c.qr_token == qr_token)
+            .with_for_update()
+        )
+        reg_row = reg_result.first()
+        if not reg_row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"message": "registration not found"},
+            )
+        if reg_row.event_id != event_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"message": "qr token belongs to another event"},
+            )
+        if reg_row.status != "confirmed":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"message": "registration is not confirmed"},
+            )
+        if reg_row.attended:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"message": "already checked in"},
+            )
+
+        update_result = await session.execute(
+            update(registrations)
+            .where(registrations.c.id == reg_row.id)
+            .values(attended=True, checked_in_at=func.now())
+            .returning(registrations.c.student_id, registrations.c.checked_in_at)
+        )
+        updated_row = update_result.first()
+
+        student_result = await session.execute(
+            select(users.c.name, users.c.roll_no).where(users.c.id == updated_row.student_id)
+        )
+        student_row = student_result.first()
+        if not student_row:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"message": "student not found"},
+            )
+
+        return CheckInOut(
+            student_name=student_row.name,
+            roll_no=student_row.roll_no,
+            checked_in_at=updated_row.checked_in_at,
+        )
+
+
+@router.get("/{event_id}/attendance", response_model=list[AttendanceRowOut])
+async def event_attendance(
+    event_id: int,
+    _: CurrentUser = Depends(require_event_club("event_id")),
+    session: AsyncSession = Depends(get_session),
+):
+    await _get_event_row(session, event_id)
+    result = await session.execute(
+        select(
+            users.c.name.label("student_name"),
+            users.c.roll_no,
+            users.c.dept,
+            registrations.c.attended,
+            registrations.c.checked_in_at,
+        )
+        .select_from(registrations.join(users, registrations.c.student_id == users.c.id))
+        .where(
+            registrations.c.event_id == event_id,
+            registrations.c.status == "confirmed",
+        )
+        .order_by(users.c.roll_no.asc())
+    )
+    return [_attendance_row_out(row) for row in result.fetchall()]
+
+
+@router.get("/{event_id}/attendance/export")
+async def export_event_attendance(
+    event_id: int,
+    _: CurrentUser = Depends(require_event_club("event_id")),
+    session: AsyncSession = Depends(get_session),
+):
+    event_row = await _get_event_row(session, event_id)
+    result = await session.execute(
+        select(
+            users.c.name.label("student_name"),
+            users.c.roll_no,
+            users.c.dept,
+            registrations.c.attended,
+            registrations.c.checked_in_at,
+        )
+        .select_from(registrations.join(users, registrations.c.student_id == users.c.id))
+        .where(
+            registrations.c.event_id == event_id,
+            registrations.c.status == "confirmed",
+        )
+        .order_by(users.c.roll_no.asc())
+    )
+
+    output = StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["name", "roll_no", "dept", "attended", "checked_in_at"])
+    for row in result.fetchall():
+        writer.writerow(
+            [
+                row.student_name,
+                row.roll_no,
+                row.dept or "",
+                "true" if row.attended else "false",
+                row.checked_in_at.isoformat() if row.checked_in_at else "",
+            ]
+        )
+    output.seek(0)
+
+    filename = f"event-{event_row.id}-attendance.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.patch("/{event_id}", response_model=EventManagerOut)

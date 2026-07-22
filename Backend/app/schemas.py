@@ -173,6 +173,24 @@ class EventCapacityOut(BaseModel):
     active_count: int
 
 
+class CheckInIn(BaseModel):
+    qr_token: str = Field(min_length=1)
+
+
+class CheckInOut(BaseModel):
+    student_name: str
+    roll_no: str
+    checked_in_at: datetime
+
+
+class AttendanceRowOut(BaseModel):
+    student_name: str
+    roll_no: str
+    dept: str | None = None
+    attended: bool
+    checked_in_at: datetime | None = None
+
+
 class StatsBucket(BaseModel):
     count: int
 

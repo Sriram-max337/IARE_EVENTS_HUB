@@ -110,9 +110,13 @@ export async function getRegistrationsForUser() {
   return request('/registrations/me')
 }
 
-export async function getUserEventStatus(_userId, eventId) {
+export async function getUserRegistrationForEvent(eventId) {
   const regs = await getRegistrationsForUser()
-  const match = regs.find((r) => r.event_id === eventId)
+  return regs.find((r) => r.event_id === eventId) || null
+}
+
+export async function getUserEventStatus(_userId, eventId) {
+  const match = await getUserRegistrationForEvent(eventId)
   return match ? match.status : 'none'
 }
 
@@ -132,4 +136,39 @@ export async function cancelRegistration(eventId) {
 
 export async function getEventStats(eventId) {
   return request(`/events/${eventId}/stats`)
+}
+
+export async function checkInRegistration(eventId, qrToken) {
+  return request(`/events/${eventId}/checkin`, {
+    method: 'POST',
+    body: JSON.stringify({ qr_token: qrToken }),
+  })
+}
+
+export async function getEventAttendance(eventId) {
+  return request(`/events/${eventId}/attendance`)
+}
+
+export async function downloadEventAttendanceCsv(eventId) {
+  const token = getToken()
+  const response = await fetch(`${API_BASE_URL}/events/${eventId}/attendance/export`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  })
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => null)
+    throw new Error(data?.message || 'Export failed')
+  }
+
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `event-${eventId}-attendance.csv`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
 }
